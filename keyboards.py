@@ -7,3 +7,5 @@ start_keyboard = ReplyKeyboardMarkup(
     is_persistent=True,
     input_field_placeholder="Boy or Girl?"
 )
+
+
