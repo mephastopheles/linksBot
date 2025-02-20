@@ -5,17 +5,17 @@ from telegram.ext import (
 
 )
 
-
 import logging
 from logging.handlers import RotatingFileHandler
 
 import re
 from random import choices as random_choices
 
+from keyboards import start_keyboard, account_keyboard, back_keyboard
+from database import insert_tasks_db, insert_users_db, update_users_db, select_users_db, update_time_weight_links, \
+    select_links, insert_links_db
 
-from keyboards import start_keyboard, account_keyboard, send_link_keyboard
-from database import insert_tasks_db, insert_users_db, update_users_db, select_users_db, update_time_weight_links, select_links
-from specs import specs
+from specs import specs, states
 
 logger = logging.getLogger(__name__)
 logger.addHandler(RotatingFileHandler(filename=f"{__name__}.log",
@@ -34,15 +34,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             reply_markup=start_keyboard
         )
         logger.info(msg=f'Succeed to start')
+
+        return states.START
     except Exception as e:
         logger.exception(msg=f'Failed to start: {e}')
 
 
-async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Get screenshot of completed task and add points"""
 
     user_id = update.message.from_user.id
-    link = 'xui'
+
     photo_id = update.message.photo[-1].file_id
     try:
         new_photo = await context.bot.get_file(file_id=photo_id)
@@ -51,17 +53,30 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         logger.exception(msg=f'Failed to download photo: {e}')
 
     try:
-        await update_users_db(user_id=user_id, balance_hl=1)
-        balance_hl = await select_users_db(user_id=user_id, column=1)
+        task = await select_users_db(user_id=user_id, column=2)
+        if task:
 
-        await insert_tasks_db(user_id=user_id, link=link, photo_id=photo_id)
+            await update_users_db(user_id=user_id, balance_hl=1, task='')
+            balance_hl = await select_users_db(user_id=user_id, column=1)
 
-        await update.message.reply_text(
-            reply_to_message_id=update.message.message_id,
-            text=f'{update.message.from_user.username} получили 1 хлбалл! Ваш баланс: {balance_hl}',
-            reply_markup=start_keyboard
-        )
-        logger.info(msg=f'Succeed to task complete')
+            await insert_tasks_db(user_id=user_id, task=task, photo_id=photo_id)
+
+            await update.message.reply_text(
+                reply_to_message_id=update.message.message_id,
+                text=f'{update.message.from_user.username} получили 1 хлбалл! Ваш баланс: {balance_hl}',
+                reply_markup=start_keyboard
+            )
+            logger.info(msg=f'Succeed to task complete 0')
+            return states.START
+
+        else:
+            await update.message.reply_text(
+                reply_to_message_id=update.message.message_id,
+                text=f'У тебя нет задания',
+                reply_markup=start_keyboard
+            )
+            logger.warning(msg=f'Rejected to task complete by empty task')
+            return states.START
     except Exception as e:
         logger.exception(msg=f'Failed to task complete: {e}')
 
@@ -70,26 +85,40 @@ async def get_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         await update_time_weight_links()
         user_id = update.message.from_user.id
+        if await select_users_db(user_id=user_id, column=2):
+            await update.message.reply_text(
+                reply_to_message_id=update.message.message_id,
+                text=f'Сначала выполни текущее задание',
+                reply_markup=back_keyboard
+            )
+            return states.GET_LINK
+
         rows = await select_links(user_id=user_id)
         links = []
         weights = []
-        for row in rows:
-            links.append(row[0])
-            weights.append(row[1])
+        if rows:
+            for row in rows:
+                links.append(row[0])
+                weights.append(row[1] + 1)
+        else:
+            await update.message.reply_text(
+                reply_to_message_id=update.message.message_id,
+                text=f'Пока что нет задач',
+                reply_markup=start_keyboard
+            )
+            return states.START
 
-        link = random_choices(population=links, weights=weights)[0]
+        task = random_choices(population=links, weights=weights)[0]
 
+        await update_users_db(user_id=user_id, task=task)
         await update.message.reply_text(
             reply_to_message_id=update.message.message_id,
-            text=f'Задача: {link}',
-            reply_markup=start_keyboard
+            text=f'Задача: {task}',
+            reply_markup=back_keyboard
         )
 
-        # обновить временные веса у ссылок
-        # выгрузить все по условию ссылки и веса
-        # выбрать случайно ссылку с приоритетом по весам
-
         logger.info(msg=f'Succeed to get link')
+        return states.GET_LINK
     except Exception as e:
         logger.exception(msg=f'Failed to get link: {e}')
 
@@ -98,10 +127,11 @@ async def send_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         await update.message.reply_text(
             reply_to_message_id=update.message.message_id,
-            text=f'Отправь ссылку с небольшим описанием того, что нужно сделать в форме.',
-            reply_markup=send_link_keyboard
+            text=f'Отправь ссылку с небольшим описанием того, что нужно сделать в форме: <<<тут ссылка и описание>>>',
+            reply_markup=back_keyboard
         )
         logger.info(msg=f'Succeed to send link')
+        return states.SEND_LINK
     except Exception as e:
         logger.exception(msg=f'Failed to send link: {e}')
 
@@ -114,8 +144,7 @@ async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not match:
         await update.message.reply_text(
             reply_to_message_id=update.message.message_id,
-            text=f'Ссылка не найдена',
-            reply_markup=start_keyboard
+            text=f'Ссылка не найдена'
         )
         logger.info(msg=f'Rejected to add link by link not found')
         return
@@ -125,14 +154,14 @@ async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         balance = await select_users_db(user_id=user_id, column=0)
         if balance > specs.price:
             await update_users_db(user_id=user_id, balance=-specs.price)
-
+            await insert_links_db(user_id=user_id, link=message)
             await update.message.reply_text(
                 reply_to_message_id=update.message.message_id,
-                text=f'Ссылка добавлена.',
+                text=f'Ссылка добавлена',
                 reply_markup=start_keyboard
             )
             logger.info(msg=f'Succeed to add link')
-
+            return states.START
         else:
             await update.message.reply_text(
                 reply_to_message_id=update.message.message_id,
@@ -150,17 +179,33 @@ async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def personal_account(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
     try:
-        balance, balance_hl = await select_users_db(user_id=user_id, column=-1)
+        balance, balance_hl, task = await select_users_db(user_id=user_id, column=-1)
         await update.message.reply_text(
             reply_to_message_id=update.message.message_id,
-            text=f'Ваш id: {user_id}'
-                 f'Баланс: у вас {balance} рублей\n'
-                 f'ХЛ: у вас {balance_hl} хлбаллов ',
+            text=f'Ваш id: {user_id}\n'
+                 f'Баланс: у вас {balance // 100}.{balance % 100} рублей\n'
+                 f'ХЛ: у вас {balance_hl} хлбаллов\n'
+                 f'Задание для выполнения {task}\n',
             reply_markup=account_keyboard
         )
         logger.info(msg=f'Succeed check personal account')
+        return states.ACCOUNT
     except Exception as e:
         logger.exception(msg=f'Failed to check personal account: {e}')
+
+
+async def back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        await update.message.reply_text(
+            reply_to_message_id=update.message.message_id,
+            text='Вернулись в меню',
+            reply_markup=start_keyboard
+        )
+
+        logger.info(msg=f'Succeed to back')
+        return states.START
+    except Exception as e:
+        logger.exception(msg=f'Failed to back: {e}')
 
 
 if __name__ == '__main__':

@@ -6,7 +6,7 @@ from os import path as os_path
 class Specs:
     def __init__(self, token: str, payment_token: str,
                  db_path: str = 'database/',
-                 image_path: str = 'image/',
+                 image_path: str = 'images/',
                  logs_path: str = 'logs/',
                  currency: str = 'RUB',
                  price: int = 100,
@@ -67,6 +67,17 @@ if PAYMENT_PROVIDER_TOKEN is None:
     PAYMENT_PROVIDER_TOKEN = "1744374395:TEST:6fa8118f24ba3436ace8"  # for test ONLY
 
 specs = Specs(token=TOKEN, payment_token=PAYMENT_PROVIDER_TOKEN)
+
+
+class States:
+    def __init__(self):
+        self.START = 0
+        self.SEND_LINK = 1
+        self.ACCOUNT = 2
+        self.GET_LINK = 3
+
+
+states = States()
 
 if __name__ == '__main__':
     pass

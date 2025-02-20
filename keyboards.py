@@ -8,13 +8,13 @@ start_keyboard = ReplyKeyboardMarkup(
 )
 
 account_keyboard = ReplyKeyboardMarkup(
-    keyboard=[["Получить ссылку"], ["Отправить ссылку"]],
+    keyboard=[["Пополнить баланс"], ["Назад"]],
     one_time_keyboard=True,
     is_persistent=False,
 )
 
-send_link_keyboard = ReplyKeyboardMarkup(
-    keyboard=[["Добавить ссылку"]],
+back_keyboard = ReplyKeyboardMarkup(
+    keyboard=[["Назад"]],
     one_time_keyboard=True,
     is_persistent=False,
 )

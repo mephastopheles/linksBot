@@ -1,12 +1,14 @@
 import logging
 from logging.handlers import RotatingFileHandler
 
-from specs import specs
+from specs import specs, states
 
 from telegram import LabeledPrice, Update
 from telegram.ext import (
     ContextTypes,
 )
+
+from database import update_users_db
 
 # Enable logging
 logging.basicConfig(
@@ -43,24 +45,30 @@ async def start_without_shipping_callback(
         chat_id=chat_id, title=title, description=description, payload=payload,
         provider_token=specs.payment_token, currency=currency, prices=prices
     )
+    return states.ACCOUNT
 
 
 # After (optional) shipping, process the pre-checkout step
 async def precheckout_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Responds to the PreCheckoutQuery as the final confirmation for checkout."""
     query = update.pre_checkout_query
+
     # Verify if the payload matches, ensure it's from your bot
     if query.invoice_payload != "Custom-Payload":
         # If not, respond with an error
         await query.answer(ok=False, error_message="Something went wrong...")
     else:
+        balance: int = query.total_amount
+        await update_users_db(user_id=query.from_user.id, balance=balance)
         await query.answer(ok=True)
+    return states.ACCOUNT
 
 
 # Final callback after successful payment
 async def successful_payment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Acknowledges successful payment and thanks the user."""
     await update.message.reply_text("Спасибо за оплату")
+    return states.ACCOUNT
 
 
 if __name__ == '__main__':
