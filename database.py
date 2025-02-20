@@ -25,6 +25,7 @@ async def create_tasks_db(db_file: str = f'{specs.db_path}bot_database.db', task
                 );
                 ''')
                 await db.commit()
+            logger.info(msg='Succeed to create tasks db')
         except Exception as e:
             logger.exception(msg=f'Failed to create tasks db: {e}')
     if users:
@@ -38,6 +39,7 @@ async def create_tasks_db(db_file: str = f'{specs.db_path}bot_database.db', task
                 );
                 ''')
                 await db.commit()
+            logger.info(msg='Succeed to create users db')
         except Exception as e:
             logger.exception(msg=f'Failed to create users db: {e}')
     if links:
@@ -45,12 +47,73 @@ async def create_tasks_db(db_file: str = f'{specs.db_path}bot_database.db', task
             async with aiosqlite.connect(db_file) as db:
                 await db.execute('''
                 CREATE TABLE IF NOT EXISTS links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                link TEXT,
+                creator_id INT,
+                weight REAL,
+                creation_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                transition_count INT DEFAULT 0
                 
                 );
                 ''')
                 await db.commit()
+            logger.info(msg='Succeed to create links db')
+
+            async with aiosqlite.connect(db_file) as db:
+                await db.execute('''
+                CREATE TABLE link_transitions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                link_id INTEGER,
+                transition_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (link_id) REFERENCES links(id)
+                );
+                ''')
+                await db.commit()
+            logger.info(msg='Succeed to create links_transitions db')
+
+            async with aiosqlite.connect(db_file) as db:
+                await db.execute('''
+                CREATE TRIGGER update_transition_count
+                AFTER INSERT ON link_transitions
+                FOR EACH ROW
+                BEGIN
+                UPDATE links
+                SET transition_count = (
+                    SELECT COUNT(*)
+                    FROM link_transitions
+                    WHERE link_id = NEW.link_id
+                      AND transition_time >= datetime('now', '-24 hours')
+                )
+                WHERE id = NEW.link_id;
+                END;
+                ''')
+                await db.commit()
+            logger.info(msg='Succeed to create update_transition_count db')
+
+            async with aiosqlite.connect(db_file) as db:
+                await db.execute('''
+                CREATE TRIGGER update_transition_count_after_delete
+                AFTER DELETE ON link_transitions
+                FOR EACH ROW
+                BEGIN    
+                UPDATE links
+                SET transition_count = (
+                SELECT COUNT(*)
+                FROM link_transitions
+                WHERE link_id = OLD.link_id
+                AND transition_time >= datetime('now', '-24 hours')
+                )
+                WHERE id = OLD.link_id;
+                END;
+                ''')
+            logger.info(msg='Succeed to create update_transition_count_after_delete db')
+
         except Exception as e:
-            logger.exception(msg=f'Failed to create links db: {e}')
+            logger.exception(msg=f'Failed to create links or links_transitions db: {e}')
+
+
+
+
 
 
 async def insert_tasks_db(user_id: int, link: str, photo_id: str, db_file: str = f'{specs.db_path}bot_database.db',
@@ -95,22 +158,23 @@ async def update_users_db(user_id: int, balance: int = 0, balance_hl: int = 0,
 
 
 async def select_users_db(user_id: int, column: int,
-                          db_file: str = f'{specs.db_path}bot_database.db'):
+                          db_file: str = f'{specs.db_path}bot_database.db') -> int | list[int]:
     columns = {0: 'balance', 1: 'balance_hl'}
-    if column in columns.keys():
-        column_name = columns.get(column)
-    else:
-        column_name = columns.get(0)
-        logger.warning(msg=f'Trying get by wrong key in select users db')
     try:
         async with aiosqlite.connect(db_file) as db:
-            await db.execute('''SELECT ? FROM users WHERE user_id = ?''',
-                             (column_name, user_id)
-                             )
-            await db.commit()
-        logger.info(msg=f'Successed to update users db')
+            async with db.execute('''SELECT * FROM users WHERE user_id = ?''',
+                             (user_id)
+                             ) as cursor:
+                row = await cursor.fetchone()
+                if column == -1:
+                    value = [row[columns.get(0)],row[columns.get(1)]]
+                else:
+                    value = row[columns.get(column)]
+                logger.info(msg=f'Successed to update users db')
+                return value
     except Exception as e:
         logger.exception(msg=f'Failed to update users db: {e}')
+
 
 
 if __name__ == '__main__':
