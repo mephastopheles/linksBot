@@ -76,22 +76,26 @@ def main() -> None:
         entry_points=[CommandHandler('start', start)],
         states={
             states.START: [
+                CommandHandler('start', start),
                 MessageHandler(filters.Text(['Получить ссылку']), get_link),
                 MessageHandler(filters.Text(['Отправить ссылку']), send_link),
                 MessageHandler(filters.Text(['Личный кабинет']), personal_account)
             ],
             states.ACCOUNT: [
+                CommandHandler('start', start),
                 MessageHandler(filters.Text(['Пополнить баланс']), start_without_shipping_callback),
                 PreCheckoutQueryHandler(precheckout_callback),
                 MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback),
                 MessageHandler(filters.Text(['Назад']), back)
             ],
             states.SEND_LINK: [
+                CommandHandler('start', start),
                 MessageHandler(filters.Text(['Назад']), back),
                 MessageHandler(filters.TEXT, add_link),
 
             ],
             states.GET_LINK: [
+                CommandHandler('start', start),
                 MessageHandler(filters.Text(['Назад']), back),
                 MessageHandler(filters.PHOTO, task_complete)
 

@@ -13,7 +13,7 @@ from random import choices as random_choices
 
 from keyboards import start_keyboard, account_keyboard, back_keyboard
 from database import insert_tasks_db, insert_users_db, update_users_db, select_users_db, update_time_weight_links, \
-    select_links, insert_links_db
+    select_tasks, insert_links_db, select_links, insert_link_transitions_db
 
 from specs import specs, states
 
@@ -58,7 +58,7 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             await update_users_db(user_id=user_id, balance_hl=1, task='')
             balance_hl = await select_users_db(user_id=user_id, column=1)
-
+            await ins
             await insert_tasks_db(user_id=user_id, task=task, photo_id=photo_id)
 
             await update.message.reply_text(
@@ -93,7 +93,7 @@ async def get_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             return states.GET_LINK
 
-        rows = await select_links(user_id=user_id)
+        rows = await select_tasks(user_id=user_id)
         links = []
         weights = []
         if rows:
@@ -111,6 +111,8 @@ async def get_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         task = random_choices(population=links, weights=weights)[0]
 
         await update_users_db(user_id=user_id, task=task)
+        link_id = await select_links(user_id=0, link=task)
+        await insert_link_transitions_db(link_id=link_id)
         await update.message.reply_text(
             reply_to_message_id=update.message.message_id,
             text=f'Задача: {task}',
@@ -141,6 +143,7 @@ async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.message.text
 
     match = re.search(pattern, message)
+
     if not match:
         await update.message.reply_text(
             reply_to_message_id=update.message.message_id,
@@ -154,7 +157,10 @@ async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         balance = await select_users_db(user_id=user_id, column=0)
         if balance > specs.price:
             await update_users_db(user_id=user_id, balance=-specs.price)
-            await insert_links_db(user_id=user_id, link=message)
+            _start, _end = match.span()
+            link = f'{message[_start:_end]}'
+            await insert_links_db(user_id=user_id, link=link)
+
             await update.message.reply_text(
                 reply_to_message_id=update.message.message_id,
                 text=f'Ссылка добавлена',
@@ -169,7 +175,7 @@ async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 reply_markup=start_keyboard
             )
             logger.info(msg=f'Rejected to add link by low balance')
-            return
+            return states.START
 
 
     except Exception as e:
@@ -180,14 +186,27 @@ async def personal_account(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     user_id = update.message.from_user.id
     try:
         balance, balance_hl, task = await select_users_db(user_id=user_id, column=-1)
+
+        if task is None:
+            task = 'нет'
         await update.message.reply_text(
             reply_to_message_id=update.message.message_id,
             text=f'Ваш id: {user_id}\n'
                  f'Баланс: у вас {balance // 100}.{balance % 100} рублей\n'
                  f'ХЛ: у вас {balance_hl} хлбаллов\n'
-                 f'Задание для выполнения {task}\n',
+                 f'Задание для выполнения: {task}\n',
             reply_markup=account_keyboard
         )
+        links = await select_links(user_id=user_id)
+        if links:
+            answer = f'{links[0]}'
+            for link in links[1::]:
+                answer = f'{answer} ||| {link}'
+            await update.message.reply_text(
+                reply_to_message_id=update.message.message_id,
+                text=answer,
+                reply_markup=account_keyboard
+            )
         logger.info(msg=f'Succeed check personal account')
         return states.ACCOUNT
     except Exception as e:

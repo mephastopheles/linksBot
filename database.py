@@ -132,25 +132,44 @@ async def update_time_weight_links(db_file: str = f'{specs.db_path}bot_database.
         logger.exception(msg=f'Failed to update_time_weight_links db: {e}')
 
 
-async def select_links(user_id: int, db_file: str = f'{specs.db_path}bot_database.db'):
+async def select_tasks(user_id: int, db_file: str = f'{specs.db_path}bot_database.db'):
     try:
         async with aiosqlite.connect(db_file) as db:
             async with db.execute('''
             SELECT links.link, links.weight FROM links
-            LEFT JOIN tasks
-            ON links.link = tasks.link
-            AND tasks.user_id = ?
-            WHERE links.creator_id = ?
-            AND tasks.link IS NULL AND links.creator_id != ?;
+            LEFT JOIN tasks ON links.link = tasks.link AND tasks.user_id != ?
+            WHERE links.creator_id != ? UNION SELECT links.link, links.weight FROM links LEFT JOIN tasks ON links.link != tasks.link WHERE links.creator_id != ?;
             ''', (user_id, user_id, user_id)) as cursor:
                 rows = await cursor.fetchall()
-                logger.info(msg='Succeed to select_links db')
+                logger.info(msg='Succeed to select_tasks db')
                 return rows
+    except Exception as e:
+        logger.exception(msg=f'Failed to select_tasks db: {e}')
+
+
+async def select_links(user_id: int, link: str = None,db_file: str = f'{specs.db_path}bot_database.db'):
+    try:
+        if link is None:
+            async with aiosqlite.connect(db_file) as db:
+                async with db.execute('''
+                SELECT link FROM links WHERE creator_id = ?;
+                ''', (user_id,)) as cursor:
+                    rows = await cursor.fetchall()
+                    logger.info(msg='Succeed to select_links_db1')
+                    return rows
+        else:
+            async with aiosqlite.connect(db_file) as db:
+                async with db.execute('''
+                SELECT id FROM links WHERE link = ?;
+                ''', (link,)) as cursor:
+                    row = await cursor.fetchone()
+                    logger.info(msg='Succeed to select_links db2')
+                    return row
     except Exception as e:
         logger.exception(msg=f'Failed to select_links db: {e}')
 
-async def insert_links_db(user_id: int, link: str, db_file: str = f'{specs.db_path}bot_database.db'):
 
+async def insert_links_db(user_id: int, link: str, db_file: str = f'{specs.db_path}bot_database.db'):
     try:
         async with aiosqlite.connect(db_file) as db:
             await db.execute('''
@@ -174,6 +193,19 @@ async def insert_tasks_db(user_id: int, task: str, photo_id: str, db_file: str =
         logger.info(msg=f'Succeed to insert tasks db')
     except Exception as e:
         logger.exception(msg=f'Failed to insert tasks db: {e}')
+
+
+async def insert_link_transitions_db(link_id, db_file: str = f'{specs.db_path}bot_database.db',
+                                     ):
+    try:
+        async with aiosqlite.connect(db_file) as db:
+            await db.execute('''
+            INSERT INTO link_transitions link_id VALUES ?;''',
+                             (link_id,))
+            await db.commit()
+        logger.info(msg=f'Succeed to insert_link_transitions_db')
+    except Exception as e:
+        logger.exception(msg=f'Failed to insert_link_transitions_db: {e}')
 
 
 async def insert_users_db(user_id: int, balance: int = 0, balance_hl: int = 0,
