@@ -1,24 +1,19 @@
 import logging
 from logging.handlers import RotatingFileHandler
 
-from os import path as os_path
-from os import makedirs as os_makedirs
-
-from telegram import Update, Message
+from telegram import Update
 from telegram.ext import (
     Application,
     PreCheckoutQueryHandler,
     CommandHandler,
     MessageHandler,
     filters,
-    ApplicationBuilder,
-    Updater
 )
 
 from specs import specs
-
-from database import create_tasks_db
-from handlers import start, task_complete, get_link
+from database import create_db
+from handlers import (start, task_complete, personal_account,
+                      get_link, add_link, send_link)
 from payment import start_without_shipping_callback, precheckout_callback, successful_payment_callback
 
 # Enable logging
@@ -40,22 +35,8 @@ logger.addHandler(RotatingFileHandler(filename=f"{specs.logs_path}{__name__}.log
 async def db_init(application: Application):
     """Create db"""
 
-    await create_tasks_db(users=True, tasks=True)
+    await create_db(users=True, tasks=True)
 
-
-def create_directory(db_path: str = f'{specs.db_path}', image_path: str = f'{specs.image_path}') -> None:
-    """Check and make directories"""
-
-    if not os_path.exists(db_path):
-        os_makedirs(db_path)
-        logger.info(f'Directory {db_path} successfully created')
-    else:
-        logger.info(f'Directory {db_path} already exists')
-    if not os_path.exists(image_path):
-        os_makedirs(image_path)
-        logger.info(f'Directory {image_path} successfully created')
-    else:
-        logger.info(f'Directory {image_path} already exists')
 
 
 def main() -> None:
@@ -72,6 +53,10 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.PHOTO, task_complete))
     application.add_handler(MessageHandler(filters.Text(['Получить ссылку']), get_link))
+    application.add_handler(MessageHandler(filters.Text(['Отправить ссылку']), send_link))
+    application.add_handler(MessageHandler(filters.Text(['Добавить ссылку']), add_link))
+    application.add_handler(MessageHandler(filters.Text(['Личный кабинет']), personal_account))
+
 
     # Payment handlers
     application.add_handler(CommandHandler("pay", start_without_shipping_callback))

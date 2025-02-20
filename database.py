@@ -10,9 +10,9 @@ logger.addHandler(RotatingFileHandler(filename=f"{specs.logs_path}{__name__}.log
                                       maxBytes=1024 * 1024))
 
 
-async def create_tasks_db(db_file: str = f'{specs.db_path}bot_database.db', tasks: bool = False,
-                          users: bool = False,
-                          links: bool = False):
+async def create_db(db_file: str = f'{specs.db_path}bot_database.db', tasks: bool = False,
+                    users: bool = False,
+                    links: bool = False):
     if tasks:
         try:
             async with aiosqlite.connect(db_file) as db:
@@ -50,9 +50,10 @@ async def create_tasks_db(db_file: str = f'{specs.db_path}bot_database.db', task
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 link TEXT,
                 creator_id INT,
-                weight REAL,
-                creation_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                transition_count INT DEFAULT 0
+                time_weight REAL DEFAULT 3.0,
+                creation_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                transition_count INT DEFAULT 0,
+                weight REAL GENERATED ALWAYS AS (time_weight + transition_count * 0.8)
                 
                 );
                 ''')
@@ -61,7 +62,7 @@ async def create_tasks_db(db_file: str = f'{specs.db_path}bot_database.db', task
 
             async with aiosqlite.connect(db_file) as db:
                 await db.execute('''
-                CREATE TABLE link_transitions (
+                CREATE TABLE IF NOT EXISTS link_transitions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 link_id INTEGER,
                 transition_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -73,7 +74,7 @@ async def create_tasks_db(db_file: str = f'{specs.db_path}bot_database.db', task
 
             async with aiosqlite.connect(db_file) as db:
                 await db.execute('''
-                CREATE TRIGGER update_transition_count
+                CREATE TRIGGER IF NOT EXISTS update_transition_count
                 AFTER INSERT ON link_transitions
                 FOR EACH ROW
                 BEGIN
@@ -92,7 +93,7 @@ async def create_tasks_db(db_file: str = f'{specs.db_path}bot_database.db', task
 
             async with aiosqlite.connect(db_file) as db:
                 await db.execute('''
-                CREATE TRIGGER update_transition_count_after_delete
+                CREATE TRIGGER IF NOT EXISTS update_transition_count_after_delete
                 AFTER DELETE ON link_transitions
                 FOR EACH ROW
                 BEGIN    
@@ -106,14 +107,48 @@ async def create_tasks_db(db_file: str = f'{specs.db_path}bot_database.db', task
                 WHERE id = OLD.link_id;
                 END;
                 ''')
+                await db.commit()
             logger.info(msg='Succeed to create update_transition_count_after_delete db')
+
 
         except Exception as e:
             logger.exception(msg=f'Failed to create links or links_transitions db: {e}')
 
 
+async def update_time_weight_links(db_file: str = f'{specs.db_path}bot_database.db'):
+    try:
+        async with aiosqlite.connect(db_file) as db:
+            await db.execute('''
+                       UPDATE links
+                       SET time_weight = CASE
+                       WHEN (strftime('%s', 'now') - strftime('%s', creation_time) <= 12 * 3600 THEN 3
+                       WHEN (strftime('%s', 'now') - strftime('%s', creation_time) <= 24 * 3600 THEN 2
+                       WHEN (strftime('%s', 'now') - strftime('%s', creation_time) <= 48 * 3600 THEN 1
+                       ELSE 0
+                       END
+                       ''')
+            await db.commit()
+        logger.info(msg='Succeed to update_time_weight_links db')
+    except Exception as e:
+        logger.exception(msg=f'Failed to update_time_weight_links db: {e}')
 
 
+async def select_links(user_id: int, db_file: str = f'{specs.db_path}bot_database.db'):
+    try:
+        async with aiosqlite.connect(db_file) as db:
+            async with db.execute('''
+            SELECT (link, weight) FROM links
+            LEFT JOIN tasks
+            ON links.link = tasks.link
+            AND tasks.user_id = ?
+            WHERE links.creator_id = ?
+            AND tasks.link IS NULL;
+            ''', (user_id, user_id)) as cursor:
+                rows = await cursor.fetchall()
+                logger.info(msg='Succeed to select_links db')
+                return rows
+    except Exception as e:
+        logger.exception(msg=f'Failed to select_links db: {e}')
 
 
 async def insert_tasks_db(user_id: int, link: str, photo_id: str, db_file: str = f'{specs.db_path}bot_database.db',
@@ -163,18 +198,17 @@ async def select_users_db(user_id: int, column: int,
     try:
         async with aiosqlite.connect(db_file) as db:
             async with db.execute('''SELECT * FROM users WHERE user_id = ?''',
-                             (user_id)
-                             ) as cursor:
+                                  (user_id)
+                                  ) as cursor:
                 row = await cursor.fetchone()
                 if column == -1:
-                    value = [row[columns.get(0)],row[columns.get(1)]]
+                    value = [row[columns.get(0)], row[columns.get(1)]]
                 else:
                     value = row[columns.get(column)]
                 logger.info(msg=f'Successed to update users db')
                 return value
     except Exception as e:
         logger.exception(msg=f'Failed to update users db: {e}')
-
 
 
 if __name__ == '__main__':

@@ -13,13 +13,13 @@ class Specs:
                  ):
         self.token = token
         self.payment_token = payment_token
+
         self._db_path = db_path
-
         self._image_path = image_path
-
         self._logs_path = logs_path
         for path in [db_path, image_path, logs_path]:
             self.check_dirs(path)
+
         self.currency = currency
         self.price = price
 
@@ -52,6 +52,7 @@ class Specs:
 
     @staticmethod
     def check_dirs(path: str = None):
+        """Check and make directories"""
         if not os_path.exists(path):
             os_makedirs(path)
 
