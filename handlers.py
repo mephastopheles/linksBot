@@ -58,7 +58,6 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             await update_users_db(user_id=user_id, balance_hl=1, task='')
             balance_hl = await select_users_db(user_id=user_id, column=1)
-            await ins
             await insert_tasks_db(user_id=user_id, task=task, photo_id=photo_id)
 
             await update.message.reply_text(
