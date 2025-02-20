@@ -63,10 +63,10 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 reply_to_message_id=update.message.message_id,
                 text=f'{update.message.from_user.username} получили 1 хлбалл! Ваш баланс: {balance_hl}',
-                reply_markup=start_keyboard
+                reply_markup=back_keyboard
             )
             logger.info(msg=f'Succeed to task complete 0')
-            return states.START
+            return states.GET_LINK
 
         else:
             await update.message.reply_text(
@@ -110,7 +110,8 @@ async def get_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         task = random_choices(population=links, weights=weights)[0]
 
         await update_users_db(user_id=user_id, task=task)
-        link_id = await select_links(user_id=0, link=task)
+        link_id = await select_links(user_id=user_id, link=task)
+        link_id = link_id[0]
         await insert_link_transitions_db(link_id=link_id)
         await update.message.reply_text(
             reply_to_message_id=update.message.message_id,

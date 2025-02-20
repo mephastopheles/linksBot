@@ -200,7 +200,7 @@ async def insert_link_transitions_db(link_id, db_file: str = f'{specs.db_path}bo
     try:
         async with aiosqlite.connect(db_file) as db:
             await db.execute('''
-            INSERT INTO link_transitions link_id VALUES ?;''',
+            INSERT INTO link_transitions (link_id) VALUES (?);''',
                              (link_id,))
             await db.commit()
         logger.info(msg=f'Succeed to insert_link_transitions_db')

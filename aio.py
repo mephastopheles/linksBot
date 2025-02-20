@@ -99,7 +99,7 @@ def main() -> None:
                 MessageHandler(filters.Text(['Назад']), back),
                 MessageHandler(filters.PHOTO, task_complete)
 
-            ]
+            ],
 
 
         },
