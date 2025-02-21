@@ -79,7 +79,7 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
             wb.save('excel/db.xlsx')
             await update.message.reply_text(
                 reply_to_message_id=update.message.message_id,
-                text=f'{update.message.from_user.username} получили 1 хлбалл! Ваш баланс: {balance_hl}',
+                text=f'{update.message.from_user.username} получили 1 ХЛБалл! Ваш баланс: {balance_hl}',
                 reply_markup=back_keyboard
             )
 
@@ -178,7 +178,7 @@ async def confirm_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    pattern = r'<<<((https?://)[\s\S]*?)>>>'
+    pattern = r'((https?://)[\s\S]*?)'
     message = update.message.text
 
     match = re.search(pattern, message)
@@ -245,7 +245,7 @@ async def personal_account(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             reply_to_message_id=update.message.message_id,
             text=f'Ваш id: {user_id}\n'
                  f'Баланс: у вас {balance // 100}.{balance % 100} рублей\n'
-                 f'ХЛ: у вас {balance_hl} хлбаллов\n'
+                 f'ХЛ: у вас {balance_hl} ХЛБаллов\n'
                  f'Задание для выполнения: {task}\n',
             reply_markup=account_keyboard
         )

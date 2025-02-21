@@ -116,8 +116,9 @@ async def create_db(db_file: str = f'{specs.db_path}bot_database.db', tasks: boo
                 CREATE TRIGGER IF NOT EXISTS delete_old_links
                 AFTER INSERT ON links
                 FOR EACH ROW
+                BEGIN
                 DELETE FROM links WHERE creation_time > datetime('now', '-48 hours');
-                END;
+                END
                 ''')
                 await db.commit()
             logger.info(msg='Succeed to create delete_old_links db')
@@ -127,7 +128,7 @@ async def create_db(db_file: str = f'{specs.db_path}bot_database.db', tasks: boo
                 CREATE TABLE IF NOT EXISTS pays (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INT,
-                creation_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                creation_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 ''')
                 await db.commit()
