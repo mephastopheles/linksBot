@@ -268,7 +268,7 @@ async def personal_account(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 async def back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         user_id = update.message.from_user.id
-        specs.choose_cost.pop(__key=user_id, __default=0)
+        specs.choose_cost.pop(user_id, 0)
         await update.message.reply_text(
             reply_to_message_id=update.message.message_id,
             text='Вернулись в меню',
