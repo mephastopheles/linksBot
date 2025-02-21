@@ -34,8 +34,8 @@ async def create_db(db_file: str = f'{specs.db_path}bot_database.db', tasks: boo
                 await db.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                 user_id INT PRIMARY KEY,
-                balance INT DEFAULT 0,
-                balance_hl INT DEFAULT 0,
+                balance INT DEFAULT 5000,
+                balance_hl INT DEFAULT 10,
                 task TEXT
                 );
                 ''')
@@ -110,8 +110,49 @@ async def create_db(db_file: str = f'{specs.db_path}bot_database.db', tasks: boo
                 ''')
                 await db.commit()
             logger.info(msg='Succeed to create update_transition_count_after_delete db')
+
+            async with aiosqlite.connect(db_file) as db:
+                await db.execute('''
+                CREATE TRIGGER IF NOT EXISTS delete_old_links
+                AFTER INSERT ON links
+                FOR EACH ROW
+                DELETE FROM links WHERE creation_time > datetime('now', '-48 hours');
+                END;
+                ''')
+                await db.commit()
+            logger.info(msg='Succeed to create delete_old_links db')
+
+            async with aiosqlite.connect(db_file) as db:
+                await db.execute('''
+                CREATE TABLE IF NOT EXISTS pays (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INT,
+                creation_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                );
+                ''')
+                await db.commit()
+            logger.info(msg='Succeed to create pays db')
+
         except Exception as e:
             logger.exception(msg=f'Failed to create links or links_transitions db: {e}')
+
+
+async def select_pays(user_id=int, db_file: str = f'{specs.db_path}bot_database.db'):
+    try:
+        async with aiosqlite.connect(db_file) as db:
+            async with db.execute('''
+            SELECT COUNT(*) FROM pays WHERE user_id = ?;
+            ''', (user_id,)) as cursor:
+                row = await cursor.fetchone()
+                logger.info(msg=f'Succeed to select_pays db')
+                return row
+
+
+
+
+
+    except Exception as e:
+        logger.exception(msg=f'Failed to select_pays db: {e}')
 
 
 async def update_time_weight_links(db_file: str = f'{specs.db_path}bot_database.db'):
@@ -147,7 +188,7 @@ async def select_tasks(user_id: int, db_file: str = f'{specs.db_path}bot_databas
         logger.exception(msg=f'Failed to select_tasks db: {e}')
 
 
-async def select_links(user_id: int, link: str = None,db_file: str = f'{specs.db_path}bot_database.db'):
+async def select_links(user_id: int, link: str = None, db_file: str = f'{specs.db_path}bot_database.db'):
     try:
         if link is None:
             async with aiosqlite.connect(db_file) as db:

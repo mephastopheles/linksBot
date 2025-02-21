@@ -17,7 +17,7 @@ from specs import specs
 from database import create_db
 from handlers import (start, task_complete,
                       personal_account, back,
-                      get_link, add_link, send_link)
+                      get_link, add_link, send_link, confirm_add)
 from payment import start_without_shipping_callback, precheckout_callback, successful_payment_callback
 
 # Enable logging
@@ -91,6 +91,8 @@ def main() -> None:
             states.SEND_LINK: [
                 CommandHandler('start', start),
                 MessageHandler(filters.Text(['Назад']), back),
+                MessageHandler(filters.Text(['Добавить за 50 рублей и 10 ХЛБаллов',
+                                             'Добавить за 10 рублей и 100 ХЛБаллов']),confirm_add),
                 MessageHandler(filters.TEXT, add_link),
 
             ],

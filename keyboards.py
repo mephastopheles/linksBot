@@ -19,4 +19,9 @@ back_keyboard = ReplyKeyboardMarkup(
     is_persistent=False,
 )
 
+confirm_add_keyboard = ReplyKeyboardMarkup(
+    keyboard=[['Добавить за 50 рублей и 10 ХЛБаллов'],['Добавить за 10 рублей и 100 ХЛБаллов'],['Назад']],
+    one_time_keyboard=True,
+    is_persistent=False,
+)
 

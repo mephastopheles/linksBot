@@ -9,19 +9,26 @@ class Specs:
                  image_path: str = 'images/',
                  logs_path: str = 'logs/',
                  currency: str = 'RUB',
-                 price: int = 100,
+                 price=None,
+                 price_hl=None,
                  ):
+        if price_hl is None:
+            price_hl = [10, 100]
+        if price is None:
+            price = [5000, 1000]
         self.token = token
         self.payment_token = payment_token
 
         self._db_path = db_path
         self._image_path = image_path
         self._logs_path = logs_path
-        for path in [db_path, image_path, logs_path]:
+        for path in [db_path, image_path, logs_path, 'excel/']:
             self.check_dirs(path)
 
         self.currency = currency
         self.price = price
+        self.price_hl = price_hl
+        self.choose_cost = {}
 
     @property
     def db_path(self):
@@ -60,13 +67,13 @@ class Specs:
 TOKEN = os_getenv('LINKS_BOT_TOKEN')
 if TOKEN is None:
     TOKEN = '7808848463:AAGSecDwo25vqu-Y2VdR0AblCh-L8RHNJ6k'  # for test ONLY
-    TOKEN = '8022554679:AAG8aJIqmLhZsSCjARYlLR4RjdbPyXEd_Ac'  # for test ONLY
+    # TOKEN = '8022554679:AAG8aJIqmLhZsSCjARYlLR4RjdbPyXEd_Ac'  # for test ONLY
 
 # PayMaster Test 2025-02-19 12:40
 PAYMENT_PROVIDER_TOKEN = os_getenv('LINKS_BOT_PAYMENT_PROVIDER_TOKEN')
 if PAYMENT_PROVIDER_TOKEN is None:
     PAYMENT_PROVIDER_TOKEN = "1744374395:TEST:6fa8118f24ba3436ace8"  # for test ONLY
-    PAYMENT_PROVIDER_TOKEN = "1744374395:TEST:bb3ad42501c03f0bfe62"  # for test ONLY
+    # PAYMENT_PROVIDER_TOKEN = "1744374395:TEST:bb3ad42501c03f0bfe62"  # for test ONLY
 
 specs = Specs(token=TOKEN, payment_token=PAYMENT_PROVIDER_TOKEN)
 

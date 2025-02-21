@@ -9,6 +9,7 @@ from telegram.ext import (
 )
 
 from database import update_users_db
+from keyboards import account_keyboard
 
 # Enable logging
 logging.basicConfig(
@@ -67,7 +68,7 @@ async def precheckout_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 # Final callback after successful payment
 async def successful_payment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Acknowledges successful payment and thanks the user."""
-    await update.message.reply_text("Спасибо за оплату")
+    await update.message.reply_text("Спасибо за оплату", reply_markup=account_keyboard)
     return states.ACCOUNT
 
 
