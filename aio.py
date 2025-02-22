@@ -93,9 +93,13 @@ def main() -> None:
                 MessageHandler(filters.Text(['Назад']), back),
                 MessageHandler(filters.Text(['Добавить за 50 рублей и 10 ХЛБаллов',
                                              'Добавить за 10 рублей и 100 ХЛБаллов']),confirm_add),
-                MessageHandler(filters.TEXT, add_link),
+
 
             ],
+            states.ACCEPT_LINK: [
+                MessageHandler(filters.TEXT, add_link),
+            ],
+
             states.GET_LINK: [
                 CommandHandler('start', start),
                 MessageHandler(filters.Text(['Назад']), back),

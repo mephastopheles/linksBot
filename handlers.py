@@ -56,12 +56,12 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.exception(msg=f'Failed to download photo: {e}')
 
     try:
-        task = await select_users_db(user_id=user_id, column=2)
+        _,_,task, task_id = await select_users_db(user_id=user_id, column=-1)
         if task:
 
             await update_users_db(user_id=user_id, balance_hl=1, task='')
             balance_hl = await select_users_db(user_id=user_id, column=1)
-            await insert_tasks_db(user_id=user_id, task=task, photo_id=photo_id)
+            await insert_tasks_db(user_id=user_id, task=task, photo_id=photo_id, task_id=task_id)
             count_pays = await select_pays(user_id=user_id)
             if not count_pays:
                 count_pays = 0
@@ -75,7 +75,7 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ws.cell(row=index, column=2, value=f'{task}')
             ws.cell(row=index, column=3, value=f'{photo_id}')
 
-            ws.cell(row=index, column=4, value=f'{count_pays}')
+            ws.cell(row=index, column=4, value=f'{count_pays[0]}')
             wb.save('excel/db.xlsx')
             await update.message.reply_text(
                 reply_to_message_id=update.message.message_id,
@@ -115,8 +115,9 @@ async def get_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         weights = []
         if rows:
             for row in rows:
-                links.append(row[0])
+                links.append((row[0],row[2]))
                 weights.append(row[1] + 1)
+
         else:
             await update.message.reply_text(
                 reply_to_message_id=update.message.message_id,
@@ -125,12 +126,12 @@ async def get_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             return states.START
 
-        task = random_choices(population=links, weights=weights)[0]
+        task, task_id = random_choices(population=links, weights=weights)[0]
 
-        await update_users_db(user_id=user_id, task=task)
-        link_id = await select_links(user_id=user_id, link=task)
-        link_id = link_id[0]
-        await insert_link_transitions_db(link_id=link_id)
+        await update_users_db(user_id=user_id, task=task, task_id=task_id)
+        # link_id = await select_links(user_id=user_id, link=task)
+        # link_id = link_id[0]
+        await insert_link_transitions_db(link_id=task_id)
         await update.message.reply_text(
             reply_to_message_id=update.message.message_id,
             text=f'Задача: {task}',
@@ -172,7 +173,8 @@ async def confirm_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             reply_markup=back_keyboard
         )
 
-        logger.exception(msg=f'Succeed to comfirm_add')
+        logger.info(msg=f'Succeed to comfirm_add')
+        return states.ACCEPT_LINK
     except Exception as e:
         logger.exception(msg=f'Failed to comfirm_add: {e}')
 
@@ -189,11 +191,11 @@ async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             text=f'Ссылка не найдена'
         )
         logger.info(msg=f'Rejected to add link by link not found')
-        return
+        return states.ACCEPT_LINK
 
     try:
         user_id = update.message.from_user.id
-        balance, balance_hl, _ = await select_users_db(user_id=user_id, column=-1)
+        balance, balance_hl, _, _ = await select_users_db(user_id=user_id, column=-1)
         if specs.choose_cost.get(user_id) == 1 and balance >= specs.price[0] and balance_hl >= specs.price_hl[0]:
             await update_users_db(user_id=user_id, balance=-specs.price[0], balance_hl=-specs.price_hl[0])
             # _start, _end = match.span()
@@ -224,7 +226,7 @@ async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else:
             await update.message.reply_text(
                 reply_to_message_id=update.message.message_id,
-                text=f'Недостаточно денег на счёте. Баланс: {balance}',
+                text=f'Недостаточно денег на счёте. Баланс: {balance / 100}',
                 reply_markup=start_keyboard
             )
             logger.info(msg=f'Rejected to add link by low balance')
@@ -237,7 +239,7 @@ async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def personal_account(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
     try:
-        balance, balance_hl, task = await select_users_db(user_id=user_id, column=-1)
+        balance, balance_hl, task, _ = await select_users_db(user_id=user_id, column=-1)
 
         if task is None:
             task = 'нет'

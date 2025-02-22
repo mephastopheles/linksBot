@@ -20,8 +20,9 @@ async def create_db(db_file: str = f'{specs.db_path}bot_database.db', tasks: boo
                 CREATE TABLE IF NOT EXISTS tasks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INT,
-                link TEXT,
-                photo_id TEXT
+                task TEXT,
+                photo_id TEXT,
+                task_id INT
                 );
                 ''')
                 await db.commit()
@@ -36,7 +37,8 @@ async def create_db(db_file: str = f'{specs.db_path}bot_database.db', tasks: boo
                 user_id INT PRIMARY KEY,
                 balance INT DEFAULT 0,
                 balance_hl INT DEFAULT 0,
-                task TEXT
+                task TEXT,
+                task_id INT
                 );
                 ''')
                 await db.commit()
@@ -178,9 +180,11 @@ async def select_tasks(user_id: int, db_file: str = f'{specs.db_path}bot_databas
     try:
         async with aiosqlite.connect(db_file) as db:
             async with db.execute('''
-            SELECT links.link, links.weight FROM links
-            LEFT JOIN tasks ON links.link = tasks.link AND tasks.user_id != ?
-            WHERE links.creator_id != ? UNION SELECT links.link, links.weight FROM links LEFT JOIN tasks ON links.link != tasks.link WHERE links.creator_id != ?;
+            SELECT links.link,  links.weight, links.id FROM links 
+            LEFT JOIN tasks ON links.id == tasks.task_id WHERE tasks.user_id != ? AND links.creator_id != ?
+            UNION SELECT links.link,  links.weight, links.id FROM links 
+            LEFT JOIN tasks ON links.id == tasks.task_id WHERE tasks.task_id IS NULL AND links.creator_id != ?
+
             ''', (user_id, user_id, user_id)) as cursor:
                 rows = await cursor.fetchall()
                 logger.info(msg='Succeed to select_tasks db')
@@ -224,13 +228,13 @@ async def insert_links_db(user_id: int, link: str, db_file: str = f'{specs.db_pa
         logger.exception(msg=f'Failed to insert links db: {e}')
 
 
-async def insert_tasks_db(user_id: int, task: str, photo_id: str, db_file: str = f'{specs.db_path}bot_database.db',
+async def insert_tasks_db(user_id: int, task: str, photo_id: str,task_id:int, db_file: str = f'{specs.db_path}bot_database.db',
                           ):
     try:
         async with aiosqlite.connect(db_file) as db:
             await db.execute('''
-            INSERT INTO tasks (user_id, link, photo_id) VALUES (?, ?, ?);''',
-                             (user_id, task, photo_id))
+            INSERT INTO tasks (user_id, task, photo_id, task_id) VALUES (?, ?, ?, ?);''',
+                             (user_id, task, photo_id,task_id))
             await db.commit()
         logger.info(msg=f'Succeed to insert tasks db')
     except Exception as e:
@@ -263,7 +267,7 @@ async def insert_users_db(user_id: int, balance: int = 0, balance_hl: int = 0,
         logger.exception(msg=f'Failed to insert users db: {e}')
 
 
-async def update_users_db(user_id: int, balance: int = 0, balance_hl: int = 0, task: str = None,
+async def update_users_db(user_id: int, balance: int = 0, balance_hl: int = 0, task: str = None, task_id: int =None,
                           db_file: str = f'{specs.db_path}bot_database.db'):
     try:
         if task is None:
@@ -278,9 +282,9 @@ async def update_users_db(user_id: int, balance: int = 0, balance_hl: int = 0, t
             async with aiosqlite.connect(db_file) as db:
                 await db.execute('''
                             UPDATE users 
-                            SET balance = balance + ?, balance_hl = balance_hl + ?, task = ?
+                            SET balance = balance + ?, balance_hl = balance_hl + ?, task = ?, task_id = ?
                             WHERE user_id = ?;''',
-                                 (balance, balance_hl, task, user_id))
+                                 (balance, balance_hl, task, task_id,user_id))
                 await db.commit()
         logger.info(msg=f'Succeed to update_users_db')
     except Exception as e:
@@ -291,7 +295,7 @@ async def select_users_db(user_id: int, column: int,
                           db_file: str = f'{specs.db_path}bot_database.db'):
     try:
         async with aiosqlite.connect(db_file) as db:
-            async with db.execute('''SELECT balance, balance_hl, task FROM users WHERE user_id = ?''',
+            async with db.execute('''SELECT balance, balance_hl, task, task_id FROM users WHERE user_id = ?''',
                                   (user_id,)
                                   ) as cursor:
                 row = await cursor.fetchone()
