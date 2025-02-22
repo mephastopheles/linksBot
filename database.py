@@ -117,7 +117,7 @@ async def create_db(db_file: str = f'{specs.db_path}bot_database.db', tasks: boo
                 AFTER INSERT ON links
                 FOR EACH ROW
                 BEGIN
-                DELETE FROM links WHERE creation_time > datetime('now', '-48 hours');
+                DELETE FROM links WHERE creation_time < datetime('now', '-48 hours');
                 END
                 ''')
                 await db.commit()

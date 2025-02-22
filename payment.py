@@ -36,9 +36,9 @@ async def start_without_shipping_callback(
     payload = "Custom-Payload"
     currency = specs.currency
     # Price in rub
-    price = specs.price
+    price = specs.price[0]
     # Convert price to cents from dollars.
-    prices = [LabeledPrice("Test", price * 100)]
+    prices = [LabeledPrice("Test", price)]
 
     # optionally pass need_name=True, need_phone_number=True,
     # need_email=True, need_shipping_address=True, is_flexible=True

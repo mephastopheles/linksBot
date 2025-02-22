@@ -18,7 +18,7 @@ from database import insert_tasks_db, insert_users_db, update_users_db, select_u
 from specs import specs, states
 
 logger = logging.getLogger(__name__)
-logger.addHandler(RotatingFileHandler(filename=f"{__name__}.log",
+logger.addHandler(RotatingFileHandler(filename=f"{specs.logs_path}{__name__}.log",
                                       mode='w',
                                       maxBytes=1024 * 1024))
 
@@ -66,7 +66,7 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not count_pays:
                 count_pays = 0
             try:
-                wb = openpyxl.load_workbook('excel/db.xlsx')
+                wb = openpyxl.load_workbook(f'excel/db.xlsx')
             except FileNotFoundError:
                 wb = openpyxl.Workbook()
             ws = wb.worksheets[0]
