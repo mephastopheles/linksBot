@@ -134,7 +134,7 @@ async def get_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await insert_link_transitions_db(link_id=task_id)
         await update.message.reply_text(
             reply_to_message_id=update.message.message_id,
-            text=f'Задача: {task}',
+            text=f'Отправь скриншот выполненной задачи. Задача: {task}',
             reply_markup=back_keyboard
         )
 
