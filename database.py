@@ -34,8 +34,8 @@ async def create_db(db_file: str = f'{specs.db_path}bot_database.db', tasks: boo
                 await db.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                 user_id INT PRIMARY KEY,
-                balance INT DEFAULT 5000,
-                balance_hl INT DEFAULT 10,
+                balance INT DEFAULT 0,
+                balance_hl INT DEFAULT 0,
                 task TEXT
                 );
                 ''')

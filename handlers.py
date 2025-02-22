@@ -27,7 +27,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     try:
         user_id = update.message.from_user.id
-        await insert_users_db(user_id=user_id)
+        await insert_users_db(user_id=user_id,balance_hl=10,balance=5000)
         await update.message.reply_text(
             reply_to_message_id=update.message.message_id,
             text='Привет, я бот для ссылок!',
