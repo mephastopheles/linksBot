@@ -196,8 +196,8 @@ async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         balance, balance_hl, _ = await select_users_db(user_id=user_id, column=-1)
         if specs.choose_cost.get(user_id) == 1 and balance >= specs.price[0] and balance_hl >= specs.price_hl[0]:
             await update_users_db(user_id=user_id, balance=-specs.price[0], balance_hl=-specs.price_hl[0])
-            _start, _end = match.span()
-            link = f'{message[_start:_end]}'
+            # _start, _end = match.span()
+            link = f'{message}'
             await insert_links_db(user_id=user_id, link=link)
 
             await update.message.reply_text(
