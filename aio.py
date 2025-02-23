@@ -13,8 +13,12 @@ from telegram.ext import (
 
 )
 
+# specification
 from specs import specs
-from database import create_db
+# states
+from specs import states
+
+from database import create_db, create_triggers_db
 from handlers import (start, task_complete,
                       personal_account, back,
                       get_link, add_link, send_link, confirm_add)
@@ -35,14 +39,12 @@ logger.addHandler(RotatingFileHandler(filename=f"{specs.logs_path}{__name__}.log
                                       mode='w',
                                       maxBytes=1024 * 1024))
 
-# states
-from specs import states
-
 
 async def db_init(application: Application):
     """Create db"""
 
     await create_db(users=True, tasks=True, links=True)
+    await create_triggers_db()
 
 
 def main() -> None:
@@ -55,23 +57,6 @@ def main() -> None:
     application = application.post_init(post_init=db_init)
     application = application.build()
 
-    # Add handlers
-    # application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.PHOTO, task_complete))
-    # application.add_handler(MessageHandler(filters.Text(['Получить ссылку']), get_link))
-    # application.add_handler(MessageHandler(filters.Text(['Отправить ссылку']), send_link))
-    # application.add_handler(MessageHandler(filters.TEXT, add_link))
-    # application.add_handler(MessageHandler(filters.Text(['Личный кабинет']), personal_account))
-
-    # Payment handlers
-    application.add_handler(CommandHandler("pay", start_without_shipping_callback))
-    # Pre-checkout handler for verifying payment details.
-    application.add_handler(PreCheckoutQueryHandler(precheckout_callback))
-    # Handler for successful payment. Notify the user that the payment was successful.
-    application.add_handler(
-        MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback)
-    )
-
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
@@ -79,25 +64,28 @@ def main() -> None:
                 CommandHandler('start', start),
                 MessageHandler(filters.Text(['Получить ссылку']), get_link),
                 MessageHandler(filters.Text(['Отправить ссылку']), send_link),
-                MessageHandler(filters.Text(['Личный кабинет']), personal_account)
+                MessageHandler(filters.Text(['Личный кабинет']), personal_account),
+
             ],
             states.ACCOUNT: [
                 CommandHandler('start', start),
+                MessageHandler(filters.Text(['Назад']), back),
                 MessageHandler(filters.Text(['Пополнить баланс']), start_without_shipping_callback),
                 PreCheckoutQueryHandler(precheckout_callback),
                 MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback),
-                MessageHandler(filters.Text(['Назад']), back)
+
             ],
             states.SEND_LINK: [
                 CommandHandler('start', start),
                 MessageHandler(filters.Text(['Назад']), back),
                 MessageHandler(filters.Text(['Добавить за 50 рублей и 10 ХЛБаллов',
-                                             'Добавить за 10 рублей и 100 ХЛБаллов']),confirm_add),
-
+                                             'Добавить за 10 рублей и 100 ХЛБаллов']), confirm_add),
 
             ],
             states.ACCEPT_LINK: [
+                MessageHandler(filters.Text(['Назад']), back),
                 MessageHandler(filters.TEXT, add_link),
+
             ],
 
             states.GET_LINK: [
@@ -105,12 +93,10 @@ def main() -> None:
                 MessageHandler(filters.Text(['Назад']), back),
                 MessageHandler(filters.PHOTO, task_complete)
 
-            ],
-
+            ]
 
         },
-        fallbacks=[],
-
+        fallbacks=[]
     )
     application.add_handler(conv_handler)
 

@@ -29,6 +29,7 @@ class Specs:
         self.price = price
         self.price_hl = price_hl
         self.choose_cost = {}
+        self.payment_payload = {}
 
     @property
     def db_path(self):

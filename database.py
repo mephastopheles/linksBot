@@ -12,7 +12,7 @@ logger.addHandler(RotatingFileHandler(filename=f"{specs.logs_path}{__name__}.log
 
 async def create_db(db_file: str = f'{specs.db_path}bot_database.db', tasks: bool = False,
                     users: bool = False,
-                    links: bool = False):
+                    links: bool = False,):
     if tasks:
         try:
             async with aiosqlite.connect(db_file) as db:
@@ -77,56 +77,6 @@ async def create_db(db_file: str = f'{specs.db_path}bot_database.db', tasks: boo
 
             async with aiosqlite.connect(db_file) as db:
                 await db.execute('''
-                CREATE TRIGGER IF NOT EXISTS update_transition_count
-                AFTER INSERT ON link_transitions
-                FOR EACH ROW
-                BEGIN
-                UPDATE links
-                SET transition_count = (
-                    SELECT COUNT(*)
-                    FROM link_transitions
-                    WHERE link_id = NEW.link_id
-                      AND transition_time >= datetime('now', '-24 hours')
-                )
-                WHERE id = NEW.link_id;
-                END;
-                ''')
-                await db.commit()
-            logger.info(msg='Succeed to create update_transition_count db')
-
-            async with aiosqlite.connect(db_file) as db:
-                await db.execute('''
-                CREATE TRIGGER IF NOT EXISTS update_transition_count_after_delete
-                AFTER DELETE ON link_transitions
-                FOR EACH ROW
-                BEGIN    
-                UPDATE links
-                SET transition_count = (
-                SELECT COUNT(*)
-                FROM link_transitions
-                WHERE link_id = OLD.link_id
-                AND transition_time >= datetime('now', '-24 hours')
-                )
-                WHERE id = OLD.link_id;
-                END;
-                ''')
-                await db.commit()
-            logger.info(msg='Succeed to create update_transition_count_after_delete db')
-
-            async with aiosqlite.connect(db_file) as db:
-                await db.execute('''
-                CREATE TRIGGER IF NOT EXISTS delete_old_links
-                AFTER INSERT ON links
-                FOR EACH ROW
-                BEGIN
-                DELETE FROM links WHERE creation_time < datetime('now', '-48 hours');
-                END
-                ''')
-                await db.commit()
-            logger.info(msg='Succeed to create delete_old_links db')
-
-            async with aiosqlite.connect(db_file) as db:
-                await db.execute('''
                 CREATE TABLE IF NOT EXISTS pays (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INT,
@@ -137,7 +87,62 @@ async def create_db(db_file: str = f'{specs.db_path}bot_database.db', tasks: boo
             logger.info(msg='Succeed to create pays db')
 
         except Exception as e:
-            logger.exception(msg=f'Failed to create links or links_transitions db: {e}')
+            logger.exception(msg=f'Failed to create links or links_transitions or pays db: {e}')
+
+
+async def create_triggers_db(db_file: str = f'{specs.db_path}bot_database.db'):
+    try:
+        async with aiosqlite.connect(db_file) as db:
+            await db.execute('''
+            CREATE TRIGGER IF NOT EXISTS update_transition_count_after_delete
+            AFTER DELETE ON link_transitions
+            FOR EACH ROW
+            BEGIN    
+            UPDATE links
+            SET transition_count = (
+            SELECT COUNT(*)
+            FROM link_transitions
+            WHERE link_id = OLD.link_id
+            AND transition_time >= datetime('now', '-24 hours')
+            )
+            WHERE id = OLD.link_id;
+            END;
+            ''')
+            await db.commit()
+        logger.info(msg='Succeed to update_transition_count_after_delete')
+
+        async with aiosqlite.connect(db_file) as db:
+            await db.execute('''
+            CREATE TRIGGER IF NOT EXISTS delete_old_links
+            AFTER INSERT ON links
+            FOR EACH ROW
+            BEGIN
+            DELETE FROM links WHERE creation_time < datetime('now', '-48 hours');
+            END
+            ''')
+            await db.commit()
+        logger.info(msg='Succeed to create delete_old_links db')
+
+        async with aiosqlite.connect(db_file) as db:
+            await db.execute('''
+            CREATE TRIGGER IF NOT EXISTS update_transition_count
+            AFTER INSERT ON link_transitions
+            FOR EACH ROW
+            BEGIN
+            UPDATE links
+            SET transition_count = (
+                SELECT COUNT(*)
+                FROM link_transitions
+                WHERE link_id = NEW.link_id
+                  AND transition_time >= datetime('now', '-24 hours')
+            )
+            WHERE id = NEW.link_id;
+            END;
+            ''')
+            await db.commit()
+        logger.info(msg='Succeed to create update_transition_count db')
+    except Exception as e:
+        logger.info(msg=f'Failed to create_triggers_db: {e}')
 
 
 async def select_pays(user_id=int, db_file: str = f'{specs.db_path}bot_database.db'):
@@ -149,10 +154,6 @@ async def select_pays(user_id=int, db_file: str = f'{specs.db_path}bot_database.
                 row = await cursor.fetchone()
                 logger.info(msg=f'Succeed to select_pays db')
                 return row
-
-
-
-
 
     except Exception as e:
         logger.exception(msg=f'Failed to select_pays db: {e}')

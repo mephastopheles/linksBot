@@ -7,21 +7,26 @@ start_keyboard = ReplyKeyboardMarkup(
     is_persistent=False,
 )
 
+# keyboard in account
 account_keyboard = ReplyKeyboardMarkup(
     keyboard=[["Пополнить баланс"], ["Назад"]],
     one_time_keyboard=True,
     is_persistent=False,
 )
 
+# back button for return in start
 back_keyboard = ReplyKeyboardMarkup(
     keyboard=[["Назад"]],
     one_time_keyboard=True,
     is_persistent=False,
 )
 
+# choose paying method keyboard
 confirm_add_keyboard = ReplyKeyboardMarkup(
     keyboard=[['Добавить за 50 рублей и 10 ХЛБаллов'],['Добавить за 10 рублей и 100 ХЛБаллов'],['Назад']],
     one_time_keyboard=True,
     is_persistent=False,
 )
 
+if __name__ == '__main__':
+    pass
