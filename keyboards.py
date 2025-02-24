@@ -2,31 +2,43 @@ from telegram import ReplyKeyboardMarkup
 
 # keyboard after start command
 start_keyboard = ReplyKeyboardMarkup(
-    keyboard=[["Получить ссылку"], ["Отправить ссылку"], ["Личный кабинет"]],
+    keyboard=[["Получить ссылку"],
+              ["Отправить ссылку"],
+              ["Личный кабинет"]],
     one_time_keyboard=True,
-    is_persistent=False,
-)
+    is_persistent=False)
 
 # keyboard in account
 account_keyboard = ReplyKeyboardMarkup(
     keyboard=[["Пополнить баланс"], ["Назад"]],
     one_time_keyboard=True,
-    is_persistent=False,
-)
+    is_persistent=False)
+
+account_add_balance = ReplyKeyboardMarkup(
+    keyboard=[["Пополнить на 50 рублей"],
+              ["Пополнить на 250 рублей"],
+              ["Пополнить на 500 рублей"],
+              ["Пополнить на 1000 рублей"],
+              ["Назад"]],
+    one_time_keyboard=True,
+    is_persistent=False)
 
 # back button for return in start
 back_keyboard = ReplyKeyboardMarkup(
     keyboard=[["Назад"]],
     one_time_keyboard=True,
-    is_persistent=False,
-)
+    is_persistent=False)
 
 # choose paying method keyboard
 confirm_add_keyboard = ReplyKeyboardMarkup(
-    keyboard=[['Добавить за 50 рублей и 10 ХЛБаллов'],['Добавить за 10 рублей и 100 ХЛБаллов'],['Назад']],
+    keyboard=[['Добавить за 50 рублей и 10 ХЛБаллов'],
+              ['Добавить за 10 рублей и 100 ХЛБаллов'],
+              ['Назад']],
     one_time_keyboard=True,
-    is_persistent=False,
-)
+    is_persistent=False)
+
+
 
 if __name__ == '__main__':
+
     pass

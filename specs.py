@@ -4,7 +4,7 @@ from os import path as os_path
 
 
 class Specs:
-    def __init__(self, token: str, payment_token: str,
+    def __init__(self, token: str, payment_token: str, wallet: str,
                  db_path: str = 'database/',
                  image_path: str = 'images/',
                  logs_path: str = 'logs/',
@@ -18,6 +18,7 @@ class Specs:
             price = [5000, 1000]
         self.token = token
         self.payment_token = payment_token
+        self.wallet = wallet
 
         self._db_path = db_path
         self._image_path = image_path
@@ -68,16 +69,17 @@ class Specs:
 TOKEN = os_getenv('LINKS_BOT_TOKEN')
 if TOKEN is None:
     TOKEN = '7808848463:AAGSecDwo25vqu-Y2VdR0AblCh-L8RHNJ6k'  # for test ONLY
-    TOKEN = '8022554679:AAG8aJIqmLhZsSCjARYlLR4RjdbPyXEd_Ac'  # for test ONLY client
+    # TOKEN = '8022554679:AAG8aJIqmLhZsSCjARYlLR4RjdbPyXEd_Ac'  # for test ONLY client
 
 # PayMaster Test 2025-02-19 12:40
 PAYMENT_PROVIDER_TOKEN = os_getenv('LINKS_BOT_PAYMENT_PROVIDER_TOKEN')
 if PAYMENT_PROVIDER_TOKEN is None:
     PAYMENT_PROVIDER_TOKEN = "1744374395:TEST:6fa8118f24ba3436ace8"  # for test ONLY
-    PAYMENT_PROVIDER_TOKEN = "1744374395:TEST:bb3ad42501c03f0bfe62"  # for test ONLY client
-    PAYMENT_PROVIDER_TOKEN = "3XTdDgvuDsoWPBwDxEKCcVz1yxbNfaB0E8AMxldFFyQ3aQGCQ95qGe5JvYOkkjAU"  # for test ONLY client
+    # PAYMENT_PROVIDER_TOKEN = "1744374395:TEST:bb3ad42501c03f0bfe62"  # for test ONLY client
 
-specs = Specs(token=TOKEN, payment_token=PAYMENT_PROVIDER_TOKEN)
+WALLET = ''
+
+specs = Specs(token=TOKEN, payment_token=PAYMENT_PROVIDER_TOKEN, wallet=WALLET)
 
 
 class States:
@@ -86,6 +88,8 @@ class States:
         self.SEND_LINK = 1
         self.ACCEPT_LINK = 2
         self.ACCOUNT = 3
+        self.ACCOUNT_ADD_BALANCE = 30
+        self.ACCOUNT_CONFIRM_ADD = 31
         self.GET_LINK = 4
 
 

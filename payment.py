@@ -34,7 +34,7 @@ async def start_without_shipping_callback(
     # Unique payload to identify this payment request as being from your bot
     user_id = update.message.from_user.id
     payload = f'{user_id}{time()}'
-    specs.payment_payload.update({user_id: payload})
+    specs.transaction_id.update({user_id: payload})
     currency = specs.currency
     # Price in rub
     price = specs.price[0]
@@ -55,18 +55,18 @@ async def precheckout_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     """Responds to the PreCheckoutQuery as the final confirmation for checkout."""
     query = update.pre_checkout_query
     user_id = query.from_user.id
-    payload = specs.payment_payload.get(user_id, None)
+    payload = specs.transaction_id.get(user_id, None)
     # Verify if the payload matches, ensure it's from your bot
     if query.invoice_payload != payload:
         # If not, respond with an error
         await query.answer(ok=False, error_message="Что-то пошло не так...")
-        specs.payment_payload.pop(user_id, None)
+        specs.transaction_id.pop(user_id, None)
         return states.ACCOUNT
     else:
         balance: int = query.total_amount
         await update_users_db(user_id=query.from_user.id, balance=balance)
         await query.answer(ok=True)
-        specs.payment_payload.pop(user_id, None)
+        specs.transaction_id.pop(user_id, None)
         return states.ACCOUNT
 
 

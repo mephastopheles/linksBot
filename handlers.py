@@ -1,6 +1,8 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from aiohttp import ClientSession
+from json import dumps as json_dumps
 
 import logging
 from logging.handlers import RotatingFileHandler
@@ -8,7 +10,11 @@ from logging.handlers import RotatingFileHandler
 import re
 from random import choices as random_choices
 
-from keyboards import start_keyboard, account_keyboard, back_keyboard, confirm_add_keyboard
+from keyboards import (
+    start_keyboard,
+    account_keyboard, account_add_balance,
+    back_keyboard,
+    confirm_add_keyboard)
 from database import insert_tasks_db, insert_users_db, update_users_db, select_users_db, update_time_weight_links, \
     select_tasks, insert_links_db, select_links, insert_link_transitions_db, select_pays
 
@@ -24,7 +30,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     try:
         user_id = update.message.from_user.id
-        await insert_users_db(user_id=user_id,balance_hl=10,balance=5000)
+        await insert_users_db(user_id=user_id, balance_hl=10, balance=5000)
         await update.message.reply_text(
             reply_to_message_id=update.message.message_id,
             text='Привет, я бот для ссылок!',
@@ -53,7 +59,7 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.exception(msg=f'Failed to download photo: {e}')
 
     try:
-        _,_,task, task_id = await select_users_db(user_id=user_id, column=-1)
+        _, _, task, task_id = await select_users_db(user_id=user_id, column=-1)
         if task:
 
             await update_users_db(user_id=user_id, balance_hl=1, task='')
@@ -112,7 +118,7 @@ async def get_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         weights = []
         if rows:
             for row in rows:
-                links.append((row[0],row[2]))
+                links.append((row[0], row[2]))
                 weights.append(row[1] + 1)
 
         else:
@@ -264,10 +270,12 @@ async def personal_account(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         logger.exception(msg=f'Failed to check personal account: {e}')
 
 
-async def back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def back(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.message.from_user.id
         specs.choose_cost.pop(user_id, None)
+        specs.payment_payload.pop(user_id, None)
+
         await update.message.reply_text(
             reply_to_message_id=update.message.message_id,
             text='Вернулись в меню',
@@ -278,6 +286,131 @@ async def back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return states.START
     except Exception as e:
         logger.exception(msg=f'Failed to back: {e}')
+
+
+async def account_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        await update.message.reply_text(
+            reply_to_message_id=update.message.message_id,
+            text='Выбери платёж',
+            reply_markup=account_add_balance
+        )
+        logger.info(msg=f'Succeed to account_payment')
+        return states.ACCOUNT_ADD_BALANCE
+    except Exception as e:
+        logger.exception(msg=f'Failed to account_payment: {e}')
+
+
+async def account_send_invoice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        user_id = update.message.from_user.id
+        amount = {account_add_balance.keyboard[0][0].text: 50.,
+                  account_add_balance.keyboard[0][1].text: 250.,
+                  account_add_balance.keyboard[0][2].text: 500.,
+                  account_add_balance.keyboard[0][3].text: 1000.
+                  }
+        headers = {'Authorization': specs.payment_token}
+        data = {'sum': amount.get(update.message.text),
+                'wallet_to': specs.wallet,
+                'expire': 5}
+        async with ClientSession() as session:
+            async with session.post(url='https://api.lava.ru/invoice/create',
+                                    headers=headers,
+                                    data=data) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data['status'] == 'success':
+
+                        specs.payment_payload.update({user_id: data['id']})
+                        await update.message.reply_text(
+                            text=f"Для оплаты перейди по ссылке:\n"
+                                 f"{data['url']}\n"
+                                 f"После оплаты напиши сюда 'Оплачено'",
+                            reply_to_message_id=update.message.message_id,
+                        )
+                        logger.info(msg=f'Succeed to account_send_invoice:')
+                        return states.ACCOUNT_CONFIRM_ADD
+                    else:
+
+                        await update.message.reply_text(
+                            text='Что-то пошло не так, попробуй ещё раз',
+                            reply_to_message_id=update.message.message_id,
+                            reply_markup=start_keyboard
+                        )
+                        logger.error(msg=f'Failed to account_send_invoice.\n'
+                                         f'Status: {response.status}\n'
+                                         f'ErrorCode: {data["code"]}'
+                                         f'Error: {data["message"]}')
+                        return states.START
+                else:
+                    await update.message.reply_text(
+                        text='Что-то пошло не так, попробуй ещё раз',
+                        reply_to_message_id=update.message.message_id,
+                        reply_markup=start_keyboard
+                    )
+                    logger.error(msg=f'Failed to account_send_invoice.\n'
+                                     f'Status: {response.status}\n'
+                                 )
+                    return states.START
+
+    except Exception as e:
+        logger.exception(msg=f'Failed to account_send_invoice: {e}')
+
+
+async def accout_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+
+        user_id = update.message.from_user.id
+        headers = {'Authorization': specs.payment_token}
+        data = {'id': specs.payment_payload.get(user_id)}
+
+        async with ClientSession() as session:
+            async with session.post(url='https://api.lava.ru/invoice/info',
+                                    headers=headers,
+                                    data=data,
+                                    ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data['status'] == 'success':
+                        await update.message.reply_text(
+                            text='Баланс успешно пополнен',
+                            reply_to_message_id=update.message.message_id,
+                            reply_markup=start_keyboard
+                        )
+
+                        specs.payment_payload.pop(user_id, None)
+                        logger.exception(msg=f'Succeed to accout_invoice_confirm')
+                        return states.START
+                    elif data['status'] == 'pending':
+                        await update.message.reply_text(
+                            text='Транзакция выполняется',
+                            reply_to_message_id=update.message.message_id,
+                            reply_markup=start_keyboard
+                        )
+                        logger.exception(msg='Waited to accout_invoice_confirm: Pending')
+                        return states.START
+                    else:
+                        error_codes = {'cancel': 'Транзакция отменена',
+                                       'error': 'Во время транзакции возникла ошибка'}
+                        await update.message.reply_text(
+                            text=error_codes.get(data['status']),
+                            reply_to_message_id=update.message.message_id,
+                            reply_markup=start_keyboard
+                        )
+                        specs.payment_payload.pop(user_id, None)
+                        logger.exception(msg=f'Failed to accout_invoice_confirm: {error_codes.get(data['status'])}')
+                        return states.START
+
+                else:
+                    await update.message.reply_text(
+                        text='Что-то пошло не так',
+                        reply_to_message_id=update.message.message_id,
+                        reply_markup=start_keyboard
+                    )
+                    return states.START
+
+    except Exception as e:
+        logger.exception(msg=f'Failed to accout_invoice_confirm: {e}')
 
 
 if __name__ == '__main__':
