@@ -16,7 +16,7 @@ from keyboards import (
     back_keyboard,
     confirm_add_keyboard)
 from database import insert_tasks_db, insert_users_db, update_users_db, select_users_db, update_time_weight_links, \
-    select_tasks, insert_links_db, select_links, insert_link_transitions_db, select_pays
+    select_tasks, insert_links_db, select_links, insert_link_transitions_db, select_pays, insert_pays
 
 from specs import specs, states
 
@@ -65,9 +65,10 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update_users_db(user_id=user_id, balance_hl=1, task='')
             balance_hl = await select_users_db(user_id=user_id, column=1)
             await insert_tasks_db(user_id=user_id, task=task, photo_id=photo_id, task_id=task_id)
-            count_pays = await select_pays(user_id=user_id)
+            count_pays, sum_pays = await select_pays(user_id=user_id)
             if not count_pays:
                 count_pays = 0
+                sum_pays = 0
             try:
                 wb = openpyxl.load_workbook(f'excel/db.xlsx')
             except FileNotFoundError:
@@ -79,6 +80,7 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ws.cell(row=index, column=3, value=f'{photo_id}')
 
             ws.cell(row=index, column=4, value=f'{count_pays[0]}')
+            ws.cell(row=index, column=5, value=f'{sum_pays[0] * 0.01}')
             wb.save('excel/db.xlsx')
             await update.message.reply_text(
                 reply_to_message_id=update.message.message_id,
@@ -357,7 +359,7 @@ async def account_send_invoice(update: Update, context: ContextTypes.DEFAULT_TYP
         logger.exception(msg=f'Failed to account_send_invoice: {e}')
 
 
-async def accout_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
 
         user_id = update.message.from_user.id
@@ -377,7 +379,8 @@ async def accout_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_T
                             reply_to_message_id=update.message.message_id,
                             reply_markup=start_keyboard
                         )
-
+                        await update_users_db(user_id=user_id, balance=int(data['invoice']['sum'] * 100))
+                        await insert_pays(user_id=user_id, pays_sum=int(data['invoice']['sum'] * 100))
                         specs.payment_payload.pop(user_id, None)
                         logger.exception(msg=f'Succeed to accout_invoice_confirm')
                         return states.START
@@ -398,7 +401,7 @@ async def accout_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_T
                             reply_markup=start_keyboard
                         )
                         specs.payment_payload.pop(user_id, None)
-                        logger.exception(msg=f'Failed to accout_invoice_confirm: {error_codes.get(data['status'])}')
+                        logger.exception(msg=f'Failed to account_invoice_confirm: {error_codes.get(data["status"])}')
                         return states.START
 
                 else:

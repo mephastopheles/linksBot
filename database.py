@@ -80,11 +80,12 @@ async def create_db(db_file: str = f'{specs.db_path}bot_database.db', tasks: boo
                 CREATE TABLE IF NOT EXISTS pays (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INT,
-                creation_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                creation_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                pays_sum INT
                 );
                 ''')
                 await db.commit()
-            logger.info(msg='Succeed to create pays db')
+            logger.info(msg='Succeed to create_pays db')
 
         except Exception as e:
             logger.exception(msg=f'Failed to create links or links_transitions or pays db: {e}')
@@ -145,11 +146,23 @@ async def create_triggers_db(db_file: str = f'{specs.db_path}bot_database.db'):
         logger.info(msg=f'Failed to create_triggers_db: {e}')
 
 
+async def insert_pays(user_id: int, pays_sum: int, db_file: str = f'{specs.db_path}bot_database.db'):
+    try:
+        async with aiosqlite.connect(db_file) as db:
+            await db.execute('''
+                      INSERT INTO pays (user_id, pays_sum) VALUES (?);
+                       ''', (user_id, pays_sum))
+            await db.commit()
+        logger.exception(msg=f'Succeed to insert_pays db')
+    except Exception as e:
+        logger.exception(msg=f'Failed to insert_pays db: {e}')
+
+
 async def select_pays(user_id=int, db_file: str = f'{specs.db_path}bot_database.db'):
     try:
         async with aiosqlite.connect(db_file) as db:
             async with db.execute('''
-            SELECT COUNT(*) FROM pays WHERE user_id = ?;
+            SELECT COUNT(*), SUM(pays_sum) FROM pays WHERE user_id = ?;
             ''', (user_id,)) as cursor:
                 row = await cursor.fetchone()
                 logger.info(msg=f'Succeed to select_pays db')
