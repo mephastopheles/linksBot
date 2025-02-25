@@ -40,5 +40,5 @@ confirm_add_keyboard = ReplyKeyboardMarkup(
 
 
 if __name__ == '__main__':
-
+    print(account_add_balance.keyboard[1][0].text)
     pass

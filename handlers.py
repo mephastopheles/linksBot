@@ -1,6 +1,8 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 
+
+import openpyxl
 from aiohttp import ClientSession
 from json import dumps as json_dumps
 
@@ -15,11 +17,16 @@ from keyboards import (
     account_keyboard, account_add_balance,
     back_keyboard,
     confirm_add_keyboard)
-from database import insert_tasks_db, insert_users_db, update_users_db, select_users_db, update_time_weight_links, \
-    select_tasks, insert_links_db, select_links, insert_link_transitions_db, select_pays, insert_pays
+from database import (insert_tasks_db, insert_users_db, update_users_db, select_users_db,
+                      update_time_weight_links, select_tasks, insert_links_db, select_links,
+                      insert_link_transitions_db, select_pays, insert_pays)
 
 from specs import specs, states
 
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
 logger = logging.getLogger(__name__)
 logger.addHandler(RotatingFileHandler(filename=f"{specs.logs_path}{__name__}.log",
                                       mode='w',
@@ -36,14 +43,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             text='Привет, я бот для ссылок!',
             reply_markup=start_keyboard
         )
+        await set_checkout(update=update,context=context)
         logger.info(msg=f'Succeed to start')
 
         return states.START
     except Exception as e:
         logger.exception(msg=f'Failed to start: {e}')
-
-
-import openpyxl
 
 
 async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -303,13 +308,87 @@ async def account_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.exception(msg=f'Failed to account_payment: {e}')
 
 
+async def checkout(context: ContextTypes.DEFAULT_TYPE):
+    """Check invoice success after 5 minutes"""
+
+    user_id = context.job.chat_id
+    headers = {'Authorization': specs.payment_token}
+    data = {'id': specs.payment_payload.get(user_id)}
+
+    try:
+        async with ClientSession() as session:
+            async with session.post(url='https://api.lava.ru/invoice/info',
+                                    headers=headers,
+                                    data=json_dumps(data),
+                                    ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data['status'] == 'success':
+                        await context.bot.send_message(
+                            text='Баланс успешно пополнен',
+                            reply_markup=start_keyboard
+                        )
+                        await update_users_db(user_id=user_id, balance=int(data['invoice']['sum'] * 100))
+                        await insert_pays(user_id=user_id, pays_sum=int(data['invoice']['sum'] * 100))
+                        specs.payment_payload.pop(user_id, None)
+                        logger.exception(msg=f'Succeed to account_invoice_confirm')
+                        return states.START
+                    elif data['status'] == 'pending':
+                        await context.bot.send_message(
+                            text='Транзакция выполняется',
+                            reply_markup=start_keyboard
+                        )
+                        logger.exception(msg='Waited to accout_invoice_confirm: Pending')
+                        return states.START
+                    else:
+                        error_codes = {'cancel': 'Транзакция отменена',
+                                       'error': 'Во время транзакции возникла ошибка'}
+                        await context.bot.send_message(
+                            text=error_codes.get(data['status']),
+                            reply_markup=start_keyboard
+                        )
+                        specs.payment_payload.pop(user_id, None)
+                        logger.error(msg=f'Failed to account_invoice_confirm: {error_codes.get(data["status"])}')
+                        return states.START
+
+                else:
+                    await context.bot.send_message(
+                        text='Что-то пошло не так',
+                        reply_markup=start_keyboard
+                    )
+                    return states.START
+
+
+
+
+
+
+    except Exception as e:
+        logger.exception(msg=f'Failed to checkout: {e}')
+
+
+async def set_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Add a job to the queue."""
+    try:
+        user_id = update.message.from_user.id
+        context.job_queue.run_once(callback=checkout,
+                                   when=305,
+                                   chat_id=user_id,
+                                   name=str(user_id),
+                                   )
+
+        logger.info(msg=f'Succeed to set_checkout')
+    except Exception as e:
+        logger.exception(msg=f'Failed to set_checkout: {e}')
+
+
 async def account_send_invoice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.message.from_user.id
         amount = {account_add_balance.keyboard[0][0].text: 50.,
-                  account_add_balance.keyboard[0][1].text: 250.,
-                  account_add_balance.keyboard[0][2].text: 500.,
-                  account_add_balance.keyboard[0][3].text: 1000.
+                  account_add_balance.keyboard[1][0].text: 250.,
+                  account_add_balance.keyboard[2][0].text: 500.,
+                  account_add_balance.keyboard[3][0].text: 1000.
                   }
         headers = {'Authorization': specs.payment_token}
         data = {'sum': amount.get(update.message.text),
@@ -318,7 +397,7 @@ async def account_send_invoice(update: Update, context: ContextTypes.DEFAULT_TYP
         async with ClientSession() as session:
             async with session.post(url='https://api.lava.ru/invoice/create',
                                     headers=headers,
-                                    data=data) as response:
+                                    data=json_dumps(data)) as response:
                 if response.status == 200:
                     data = await response.json()
                     if data['status'] == 'success':
@@ -369,7 +448,7 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
         async with ClientSession() as session:
             async with session.post(url='https://api.lava.ru/invoice/info',
                                     headers=headers,
-                                    data=data,
+                                    data=json_dumps(data),
                                     ) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -382,7 +461,7 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
                         await update_users_db(user_id=user_id, balance=int(data['invoice']['sum'] * 100))
                         await insert_pays(user_id=user_id, pays_sum=int(data['invoice']['sum'] * 100))
                         specs.payment_payload.pop(user_id, None)
-                        logger.exception(msg=f'Succeed to accout_invoice_confirm')
+                        logger.error(msg=f'Succeed to account_invoice_confirm')
                         return states.START
                     elif data['status'] == 'pending':
                         await update.message.reply_text(
@@ -390,7 +469,7 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
                             reply_to_message_id=update.message.message_id,
                             reply_markup=start_keyboard
                         )
-                        logger.exception(msg='Waited to accout_invoice_confirm: Pending')
+                        logger.error(msg='Waited to account_invoice_confirm: Pending')
                         return states.START
                     else:
                         error_codes = {'cancel': 'Транзакция отменена',
@@ -401,7 +480,7 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
                             reply_markup=start_keyboard
                         )
                         specs.payment_payload.pop(user_id, None)
-                        logger.exception(msg=f'Failed to account_invoice_confirm: {error_codes.get(data["status"])}')
+                        logger.error(msg=f'Failed to account_invoice_confirm: {error_codes.get(data["status"])}')
                         return states.START
 
                 else:
@@ -413,7 +492,7 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
                     return states.START
 
     except Exception as e:
-        logger.exception(msg=f'Failed to accout_invoice_confirm: {e}')
+        logger.exception(msg=f'Failed to account_invoice_confirm: {e}')
 
 
 if __name__ == '__main__':

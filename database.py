@@ -3,6 +3,11 @@ import logging
 from logging.handlers import RotatingFileHandler
 from specs import specs
 
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
 # Setup logger
 logger = logging.getLogger(__name__)
 logger.addHandler(RotatingFileHandler(filename=f"{specs.logs_path}{__name__}.log",

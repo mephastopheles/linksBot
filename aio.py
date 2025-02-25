@@ -5,11 +5,11 @@ from logging.handlers import RotatingFileHandler
 from telegram import Update
 from telegram.ext import (
     Application,
-    PreCheckoutQueryHandler,
     CommandHandler,
     ConversationHandler,
     MessageHandler,
     filters,
+    JobQueue
 
 )
 
@@ -21,17 +21,16 @@ from specs import states
 from database import create_db, create_triggers_db
 from handlers import (start, task_complete,
                       personal_account,back,
-                      account_payment, account_send_invoice,accout_invoice_confirm,
+                      account_payment, account_send_invoice, account_invoice_confirm,
 
                       get_link, add_link, send_link, confirm_add)
 from keyboards import account_add_balance
 
-from payment import start_without_shipping_callback, precheckout_callback, successful_payment_callback
 
 # Enable logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.WARNING
+    level=logging.INFO
 )
 
 # Set higher logging level for httpx to avoid all GET and POST requests being logged
@@ -42,6 +41,8 @@ logger = logging.getLogger(__name__)
 logger.addHandler(RotatingFileHandler(filename=f"{specs.logs_path}{__name__}.log",
                                       mode='w',
                                       maxBytes=1024 * 1024))
+
+
 
 
 async def db_init(application: Application):
@@ -84,9 +85,9 @@ def main() -> None:
             states.ACCOUNT_ADD_BALANCE: [
                 MessageHandler(filters.Text(['Назад']), back),
                 MessageHandler(filters.Text([account_add_balance.keyboard[0][0].text,
-                                             account_add_balance.keyboard[0][1].text,
-                                             account_add_balance.keyboard[0][2].text,
-                                             account_add_balance.keyboard[0][3].text,
+                                             account_add_balance.keyboard[1][0].text,
+                                             account_add_balance.keyboard[2][0].text,
+                                             account_add_balance.keyboard[3][0].text,
                                              ]), account_send_invoice),
 
 
@@ -94,7 +95,7 @@ def main() -> None:
 
             states.ACCOUNT_CONFIRM_ADD: [
                 MessageHandler(filters.Text(['Назад']), back),
-                MessageHandler(filters.Text(['Оплачено']), accout_invoice_confirm)
+                MessageHandler(filters.Text(['Оплачено']), account_invoice_confirm)
 
 
             ],

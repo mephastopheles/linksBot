@@ -2,6 +2,9 @@ from os import getenv as os_getenv
 from os import makedirs as os_makedirs
 from os import path as os_path
 
+from aiohttp import ClientSession
+from json import dumps as json_dumps
+
 
 class Specs:
     def __init__(self, token: str, payment_token: str, wallet: str,
@@ -69,13 +72,13 @@ class Specs:
 TOKEN = os_getenv('LINKS_BOT_TOKEN')
 if TOKEN is None:
     TOKEN = '7808848463:AAGSecDwo25vqu-Y2VdR0AblCh-L8RHNJ6k'  # for test ONLY
-    # TOKEN = '8022554679:AAG8aJIqmLhZsSCjARYlLR4RjdbPyXEd_Ac'  # for test ONLY client
+    TOKEN = '8022554679:AAG8aJIqmLhZsSCjARYlLR4RjdbPyXEd_Ac'  # for test ONLY client
 
 # PayMaster Test 2025-02-19 12:40
 PAYMENT_PROVIDER_TOKEN = os_getenv('LINKS_BOT_PAYMENT_PROVIDER_TOKEN')
 if PAYMENT_PROVIDER_TOKEN is None:
     PAYMENT_PROVIDER_TOKEN = "1744374395:TEST:6fa8118f24ba3436ace8"  # for test ONLY
-    # PAYMENT_PROVIDER_TOKEN = "1744374395:TEST:bb3ad42501c03f0bfe62"  # for test ONLY client
+    PAYMENT_PROVIDER_TOKEN = "3XTdDgvuDsoWPBwDxEKCcVz1yxbNfaB0E8AMxldFFyQ3aQGCQ95qGe5JvYOkkjAU"  # for test ONLY client
 
 WALLET = ''
 
@@ -94,6 +97,35 @@ class States:
 
 
 states = States()
+
+
+# async def checkout():
+#     headers = {'Authorization': specs.payment_token}
+#
+#     for user_id, transaction_id in specs.payment_payload.values():
+#         data = {'id': specs.payment_payload.get(user_id)}
+#         async with ClientSession() as session:
+#             async with session.post(url='https://api.lava.ru/invoice/info',
+#                                     headers=headers,
+#                                     data=json_dumps(data),
+#                                     ) as response:
+#                 if response.status == 200:
+#                     data = await response.json()
+#                     if data['status'] == 'success':
+#                         await update.message.reply_text(
+#                             text='Баланс успешно пополнен',
+#                             reply_to_message_id=update.message.message_id,
+#                             reply_markup=start_keyboard
+#                         )
+
+
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.jobstores.memory import MemoryJobStore
+from apscheduler.executors.pool import ThreadPoolExecutor
+
+scheduler = AsyncIOScheduler()
+# scheduler.add_job()
 
 if __name__ == '__main__':
     pass
