@@ -37,7 +37,11 @@ confirm_add_keyboard = ReplyKeyboardMarkup(
     one_time_keyboard=True,
     is_persistent=False)
 
-
+confirm_invoice_keyboard = ReplyKeyboardMarkup(
+    keyboard=[['Оплачено']],
+    one_time_keyboard=True,
+    is_persistent=False
+)
 
 if __name__ == '__main__':
     print(account_add_balance.keyboard[1][0].text)

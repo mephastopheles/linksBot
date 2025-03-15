@@ -1,6 +1,6 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-
+from asyncio import sleep
 
 import openpyxl
 from aiohttp import ClientSession
@@ -16,7 +16,7 @@ from keyboards import (
     start_keyboard,
     account_keyboard, account_add_balance,
     back_keyboard,
-    confirm_add_keyboard)
+    confirm_add_keyboard, confirm_invoice_keyboard)
 from database import (insert_tasks_db, insert_users_db, update_users_db, select_users_db,
                       update_time_weight_links, select_tasks, insert_links_db, select_links,
                       insert_link_transitions_db, select_pays, insert_pays)
@@ -309,62 +309,66 @@ async def account_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def checkout(context: ContextTypes.DEFAULT_TYPE):
-    """Check invoice success after 5 minutes"""
+    """Check invoice success after 24 hours"""
 
     user_id = context.job.chat_id
-    headers = {'Authorization': specs.payment_token}
-    data = {'id': specs.payment_payload.get(user_id)}
+    headers = {'accept': 'application/json',
+               'X-Api-Key': specs.payment_token,
+               }
+    offerId = specs.payment_payload.get(user_id)
+    for _ in range(5):
+        continue_check = False
+        try:
+            async with ClientSession() as session:
+                async with session.get(url=f'https://gate.lava.top/api/v1/invoices/{offerId}',
+                                       headers=headers
+                                       ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        if data['status'] == 'completed':
+                            await context.bot.send_message(
+                                text='Баланс успешно пополнен',
+                                reply_markup=start_keyboard
+                            )
+                            await update_users_db(user_id=user_id, balance=int(data['amountTotal']['amount'] * 100))
+                            await insert_pays(user_id=user_id, pays_sum=int(data['amountTotal']['amount'] * 100))
+                            specs.payment_payload.pop(user_id, None)
+                            logger.info(msg=f'Succeed to account_invoice_confirm')
+                            return states.START
+                        elif data['status'] == 'in-progress':
+                            await context.bot.send_message(
+                                text='Транзакция выполняется',
+                                reply_markup=start_keyboard
+                            )
+                            logger.warning(msg='Waited to account_invoice_confirm: in-progress')
+                            return states.START
+                        else:
+                            error_codes = {'cancel': 'Транзакция отменена',
+                                           'error': 'Во время транзакции возникла ошибка'}
+                            await context.bot.send_message(
+                                text=error_codes.get(data['status']),
+                                reply_markup=start_keyboard
+                            )
+                            specs.payment_payload.pop(user_id, None)
+                            logger.warning(msg=f'Failed to account_invoice_confirm: {error_codes.get(data["status"])}')
+                            return states.START
 
-    try:
-        async with ClientSession() as session:
-            async with session.post(url='https://api.lava.ru/invoice/info',
-                                    headers=headers,
-                                    data=json_dumps(data),
-                                    ) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    if data['status'] == 'success':
-                        await context.bot.send_message(
-                            text='Баланс успешно пополнен',
-                            reply_markup=start_keyboard
-                        )
-                        await update_users_db(user_id=user_id, balance=int(data['invoice']['sum'] * 100))
-                        await insert_pays(user_id=user_id, pays_sum=int(data['invoice']['sum'] * 100))
-                        specs.payment_payload.pop(user_id, None)
-                        logger.exception(msg=f'Succeed to account_invoice_confirm')
-                        return states.START
-                    elif data['status'] == 'pending':
-                        await context.bot.send_message(
-                            text='Транзакция выполняется',
-                            reply_markup=start_keyboard
-                        )
-                        logger.exception(msg='Waited to accout_invoice_confirm: Pending')
-                        return states.START
                     else:
-                        error_codes = {'cancel': 'Транзакция отменена',
-                                       'error': 'Во время транзакции возникла ошибка'}
                         await context.bot.send_message(
-                            text=error_codes.get(data['status']),
+                            text='Что-то пошло не так',
                             reply_markup=start_keyboard
                         )
-                        specs.payment_payload.pop(user_id, None)
-                        logger.error(msg=f'Failed to account_invoice_confirm: {error_codes.get(data["status"])}')
+                        continue_check = True
                         return states.START
 
-                else:
-                    await context.bot.send_message(
-                        text='Что-то пошло не так',
-                        reply_markup=start_keyboard
-                    )
-                    return states.START
+        except Exception as e:
+            logger.exception(msg=f'Failed to checkout: {e}')
+        if continue_check:
+            pass
+        else:
+            break
+        await sleep(3)
 
-
-
-
-
-
-    except Exception as e:
-        logger.exception(msg=f'Failed to checkout: {e}')
 
 
 async def set_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -372,7 +376,7 @@ async def set_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.message.from_user.id
         context.job_queue.run_once(callback=checkout,
-                                   when=305,
+                                   when=60*60*24 + 5,
                                    chat_id=user_id,
                                    name=str(user_id),
                                    )
@@ -383,31 +387,41 @@ async def set_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def account_send_invoice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send an invoice"""
     try:
         user_id = update.message.from_user.id
-        amount = {account_add_balance.keyboard[0][0].text: 50.,
-                  account_add_balance.keyboard[1][0].text: 250.,
-                  account_add_balance.keyboard[2][0].text: 500.,
-                  account_add_balance.keyboard[3][0].text: 1000.
+        # 4 products with different prices and IDs
+        amount = {account_add_balance.keyboard[0][0].text: "094a1456-43e4-4bc1-8d17-60a44ea4c5ba",
+                  account_add_balance.keyboard[1][0].text: "e7b0a03b-e980-4207-8b5f-1e9960abf084",
+                  account_add_balance.keyboard[2][0].text: '139dc677-4314-4ede-99f0-176dfcf5fc18',
+                  account_add_balance.keyboard[3][0].text: "e9e0ed91-c72b-4a78-bf80-70182d73f69f"
                   }
-        headers = {'Authorization': specs.payment_token}
-        data = {'sum': amount.get(update.message.text),
-                'wallet_to': specs.wallet,
-                'expire': 5}
+        headers = {'accept': 'application/json',
+                   'X-Api-Key': specs.payment_token,
+                   'Content-Type': 'application/json',
+                   }
+
+        data = {"email": "client@gmail.com",
+                "offerId": amount[update.message.text],
+                "currency": "RUB"
+                }
         async with ClientSession() as session:
-            async with session.post(url='https://api.lava.ru/invoice/create',
+            async with session.post(url='https://gate.lava.top/api/v2/invoice',
                                     headers=headers,
                                     data=json_dumps(data)) as response:
-                if response.status == 200:
+                if response.status == 201:
                     data = await response.json()
-                    if data['status'] == 'success':
+                    if data['status'] == "in-progress":
 
                         specs.payment_payload.update({user_id: data['id']})
                         await update.message.reply_text(
                             text=f"Для оплаты перейди по ссылке:\n"
-                                 f"{data['url']}\n"
-                                 f"После оплаты напиши сюда 'Оплачено'",
+                                 f"{data['paymentUrl']}\n"
+                                 f"После оплаты напиши сюда 'Оплачено'.\n"
+                                 f"Для возврата в главное меню напиши 'Назад'.\n"
+                                 f"Если платеж был проведен и не отправлено 'Оплачено', он автоматически проверится через 24 часа",
                             reply_to_message_id=update.message.message_id,
+                            reply_markup=confirm_invoice_keyboard
                         )
                         logger.info(msg=f'Succeed to account_send_invoice:')
                         return states.ACCOUNT_CONFIRM_ADD
@@ -442,35 +456,36 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
     try:
 
         user_id = update.message.from_user.id
-        headers = {'Authorization': specs.payment_token}
-        data = {'id': specs.payment_payload.get(user_id)}
-
+        headers = {'accept': 'application/json',
+                   'X-Api-Key': specs.payment_token,
+                   }
+        # data = {'id': specs.payment_payload.get(user_id)}
+        offerId = specs.payment_payload.get(user_id)
         async with ClientSession() as session:
-            async with session.post(url='https://api.lava.ru/invoice/info',
-                                    headers=headers,
-                                    data=json_dumps(data),
+            async with session.get(url=f'https://gate.lava.top/api/v1/invoices/{offerId}',
+                                    headers=headers
                                     ) as response:
                 if response.status == 200:
                     data = await response.json()
-                    if data['status'] == 'success':
+                    if data['status'] == "completed":
                         await update.message.reply_text(
                             text='Баланс успешно пополнен',
                             reply_to_message_id=update.message.message_id,
                             reply_markup=start_keyboard
                         )
-                        await update_users_db(user_id=user_id, balance=int(data['invoice']['sum'] * 100))
-                        await insert_pays(user_id=user_id, pays_sum=int(data['invoice']['sum'] * 100))
+                        await update_users_db(user_id=user_id, balance=int(data['amountTotal']['amount'] * 100))
+                        await insert_pays(user_id=user_id, pays_sum=int(data['amountTotal']['amount'] * 100))
                         specs.payment_payload.pop(user_id, None)
                         logger.error(msg=f'Succeed to account_invoice_confirm')
                         return states.START
-                    elif data['status'] == 'pending':
+                    elif data['status'] == 'in-progress':
                         await update.message.reply_text(
-                            text='Транзакция выполняется',
+                            text='Оплата ещё не прошла. Транзакция выполняется',
                             reply_to_message_id=update.message.message_id,
-                            reply_markup=start_keyboard
+                            reply_markup=confirm_invoice_keyboard
                         )
-                        logger.error(msg='Waited to account_invoice_confirm: Pending')
-                        return states.START
+                        logger.info(msg='Waited to account_invoice_confirm: IN_PROGRESS')
+                        return states.ACCOUNT_CONFIRM_ADD
                     else:
                         error_codes = {'cancel': 'Транзакция отменена',
                                        'error': 'Во время транзакции возникла ошибка'}
@@ -480,7 +495,7 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
                             reply_markup=start_keyboard
                         )
                         specs.payment_payload.pop(user_id, None)
-                        logger.error(msg=f'Failed to account_invoice_confirm: {error_codes.get(data["status"])}')
+                        logger.warning(msg=f'Failed to account_invoice_confirm: {error_codes.get(data["status"])}')
                         return states.START
 
                 else:
