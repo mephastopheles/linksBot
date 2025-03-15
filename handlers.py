@@ -335,7 +335,7 @@ async def checkout(context: ContextTypes.DEFAULT_TYPE):
                             specs.payment_payload.pop(user_id, None)
                             logger.info(msg=f'Succeed to account_invoice_confirm')
                             return states.START
-                        elif data['status'] == 'in-progress':
+                        elif data['status'] == 'IN_PROGRESS':
                             await context.bot.send_message(
                                 text='Транзакция выполняется',
                                 reply_markup=start_keyboard
@@ -346,11 +346,11 @@ async def checkout(context: ContextTypes.DEFAULT_TYPE):
                             error_codes = {'cancel': 'Транзакция отменена',
                                            'error': 'Во время транзакции возникла ошибка'}
                             await context.bot.send_message(
-                                text=error_codes.get(data['status']),
+                                text='Какая-то ошибка',
                                 reply_markup=start_keyboard
                             )
                             specs.payment_payload.pop(user_id, None)
-                            logger.warning(msg=f'Failed to account_invoice_confirm: {error_codes.get(data["status"])}')
+                            logger.warning(msg=f'Failed to account_invoice_confirm: {data["status"]} : {data["errorMessage"]}')
                             return states.START
 
                     else:
@@ -476,9 +476,9 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
                         await update_users_db(user_id=user_id, balance=int(data['amountTotal']['amount'] * 100))
                         await insert_pays(user_id=user_id, pays_sum=int(data['amountTotal']['amount'] * 100))
                         specs.payment_payload.pop(user_id, None)
-                        logger.error(msg=f'Succeed to account_invoice_confirm')
+                        logger.info(msg=f'Succeed to account_invoice_confirm')
                         return states.START
-                    elif data['status'] == 'in-progress':
+                    elif data['status'] == 'IN_PROGRESS':
                         await update.message.reply_text(
                             text='Оплата ещё не прошла. Транзакция выполняется',
                             reply_to_message_id=update.message.message_id,
@@ -487,15 +487,14 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
                         logger.info(msg='Waited to account_invoice_confirm: IN_PROGRESS')
                         return states.ACCOUNT_CONFIRM_ADD
                     else:
-                        error_codes = {'cancel': 'Транзакция отменена',
-                                       'error': 'Во время транзакции возникла ошибка'}
+
                         await update.message.reply_text(
-                            text=error_codes.get(data['status']),
+                            text='Какая-то ошибка',
                             reply_to_message_id=update.message.message_id,
                             reply_markup=start_keyboard
                         )
                         specs.payment_payload.pop(user_id, None)
-                        logger.warning(msg=f'Failed to account_invoice_confirm: {error_codes.get(data["status"])}')
+                        logger.warning(msg=f'Failed to account_invoice_confirm: {data["status"]} : {data["errorMessage"]}')
                         return states.START
 
                 else:
