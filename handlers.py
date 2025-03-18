@@ -343,6 +343,7 @@ async def checkout(context: ContextTypes.DEFAULT_TYPE):
                             logger.warning(msg='Waited to account_invoice_confirm: in-progress')
                             return states.START
                         else:
+                            print(data["status"])
                             error_codes = {'cancel': 'Транзакция отменена',
                                            'error': 'Во время транзакции возникла ошибка'}
                             await context.bot.send_message(
@@ -350,7 +351,7 @@ async def checkout(context: ContextTypes.DEFAULT_TYPE):
                                 reply_markup=start_keyboard
                             )
                             specs.payment_payload.pop(user_id, None)
-                            logger.warning(msg=f'Failed to account_invoice_confirm: {data["status"]} : {data["errorMessage"]}')
+                            logger.warning(msg=f'Failed to account_invoice_confirm: {data["status"]}')
                             return states.START
 
                     else:
@@ -487,14 +488,15 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
                         logger.info(msg='Waited to account_invoice_confirm: IN_PROGRESS')
                         return states.ACCOUNT_CONFIRM_ADD
                     else:
-
+                        print(data["status"])
+                        print(data["status"])
                         await update.message.reply_text(
                             text='Какая-то ошибка',
                             reply_to_message_id=update.message.message_id,
                             reply_markup=start_keyboard
                         )
                         specs.payment_payload.pop(user_id, None)
-                        logger.warning(msg=f'Failed to account_invoice_confirm: {data["status"]} : {data["errorMessage"]}')
+                        logger.warning(msg=f'Failed to account_invoice_confirm: {data["status"]} ')
                         return states.START
 
                 else:
