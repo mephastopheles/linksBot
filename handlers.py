@@ -325,7 +325,7 @@ async def checkout(context: ContextTypes.DEFAULT_TYPE):
                                        ) as response:
                     if response.status == 200:
                         data = await response.json()
-                        if data['status'] == 'completed':
+                        if data['status'] == 'COMPLETED':
                             await context.bot.send_message(
                                 text='Баланс успешно пополнен',
                                 reply_markup=start_keyboard
@@ -468,7 +468,7 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
                                     ) as response:
                 if response.status == 200:
                     data = await response.json()
-                    if data['status'] == "completed":
+                    if data['status'] == "COMPLETED":
                         await update.message.reply_text(
                             text='Баланс успешно пополнен',
                             reply_to_message_id=update.message.message_id,
