@@ -330,8 +330,8 @@ async def checkout(context: ContextTypes.DEFAULT_TYPE):
                                 text='Баланс успешно пополнен',
                                 reply_markup=start_keyboard
                             )
-                            await update_users_db(user_id=user_id, balance=int(data['amountTotal']['amount'] * 100))
-                            await insert_pays(user_id=user_id, pays_sum=int(data['amountTotal']['amount'] * 100))
+                            await update_users_db(user_id=user_id, balance=int(data['receipt']['amount'] * 100))
+                            await insert_pays(user_id=user_id, pays_sum=int(data['receipt']['amount'] * 100))
                             specs.payment_payload.pop(user_id, None)
                             logger.info(msg=f'Succeed to account_invoice_confirm')
                             return states.START
@@ -474,8 +474,8 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
                             reply_to_message_id=update.message.message_id,
                             reply_markup=start_keyboard
                         )
-                        await update_users_db(user_id=user_id, balance=int(data['amountTotal']['amount'] * 100))
-                        await insert_pays(user_id=user_id, pays_sum=int(data['amountTotal']['amount'] * 100))
+                        await update_users_db(user_id=user_id, balance=int(data['receipt']['amount'] * 100))
+                        await insert_pays(user_id=user_id, pays_sum=int(data['receipt']['amount'] * 100))
                         specs.payment_payload.pop(user_id, None)
                         logger.info(msg=f'Succeed to account_invoice_confirm')
                         return states.START
