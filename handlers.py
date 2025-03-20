@@ -72,8 +72,8 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await insert_tasks_db(user_id=user_id, task=task, photo_id=photo_id, task_id=task_id)
             count_pays, sum_pays = await select_pays(user_id=user_id)
             if not count_pays:
-                count_pays = 0
-                sum_pays = 0
+                count_pays = [0]
+                sum_pays = [0]
             try:
                 wb = openpyxl.load_workbook(f'excel/db.xlsx')
             except FileNotFoundError:
