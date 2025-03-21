@@ -16,7 +16,7 @@ from keyboards import (
     start_keyboard,
     account_keyboard, account_add_balance,
     back_keyboard,
-    confirm_add_keyboard, confirm_invoice_keyboard)
+    confirm_add_keyboard, confirm_invoice_keyboard, pays_keyboard)
 from database import (insert_tasks_db, insert_users_db, update_users_db, select_users_db,
                       update_time_weight_links, select_tasks, insert_links_db, select_links,
                       insert_link_transitions_db, select_pays, insert_pays)
@@ -416,11 +416,13 @@ async def account_send_invoice(update: Update, context: ContextTypes.DEFAULT_TYP
 
                         specs.payment_payload.update({user_id: data['id']})
                         await update.message.reply_text(
-                            text=f"Для оплаты перейди по ссылке:\n"
-                                 f"{data['paymentUrl']}\n"
-                                 f"После оплаты напиши сюда 'Оплачено'.\n"
-                                 f"Для возврата в главное меню напиши 'Назад'.\n"
-                                 f"Если платеж был проведен и не отправлено 'Оплачено', он автоматически проверится через 24 часа",
+                            text=f"Для оплаты нажмите на «Оплатить»",
+                            reply_to_message_id=update.message.message_id,
+                            reply_markup=pays_keyboard(url=data['paymentUrl'])
+                        )
+                        await update.message.reply_text(
+                            text=f"После оплаты нажмите на «Оплачено»\n"
+                                 f"Для возврата в главное меню нажмите «Назад»",
                             reply_to_message_id=update.message.message_id,
                             reply_markup=confirm_invoice_keyboard
                         )

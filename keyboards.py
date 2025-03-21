@@ -1,4 +1,4 @@
-from telegram import ReplyKeyboardMarkup
+from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 
 # keyboard after start command
 start_keyboard = ReplyKeyboardMarkup(
@@ -38,10 +38,20 @@ confirm_add_keyboard = ReplyKeyboardMarkup(
     is_persistent=False)
 
 confirm_invoice_keyboard = ReplyKeyboardMarkup(
-    keyboard=[['Оплачено']],
+    keyboard=[['Назад'],['Оплачено']],
     one_time_keyboard=True,
     is_persistent=False
 )
+
+
+def pays_keyboard(url):
+    return InlineKeyboardMarkup( [
+        [
+            InlineKeyboardButton(text="Оплатить", url=url),
+
+        ],
+    ])
+
 
 if __name__ == '__main__':
     print(account_add_balance.keyboard[1][0].text)
