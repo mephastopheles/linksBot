@@ -155,7 +155,7 @@ async def insert_pays(user_id: int, pays_sum: int, db_file: str = f'{specs.db_pa
     try:
         async with aiosqlite.connect(db_file) as db:
             await db.execute('''
-                      INSERT INTO pays (user_id, pays_sum) VALUES (?);
+                      INSERT INTO pays (user_id, pays_sum) VALUES (?, ?);
                        ''', (user_id, pays_sum))
             await db.commit()
         logger.exception(msg=f'Succeed to insert_pays db')
