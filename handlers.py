@@ -135,7 +135,7 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=back_keyboard
             )
             with open(file='xuis/eball.png', mode='rb') as picture:
-                await update.message.reply_photo(photo=picture, reply_markup=start_keyboard, )
+                await update.message.reply_photo(photo=picture, reply_markup=back_keyboard, )
             logger.info(msg=f'Succeed to task complete 0')
             return states.GET_LINK
 
