@@ -13,7 +13,7 @@ import re
 from random import choices as random_choices
 
 from keyboards import (
-    start_keyboard,
+    start_keyboard, first_start_keyboard,
     account_keyboard, account_add_balance,
     back_keyboard,
     confirm_add_keyboard, confirm_invoice_keyboard, pays_keyboard)
@@ -36,19 +36,60 @@ logger.addHandler(RotatingFileHandler(filename=f"{specs.logs_path}{__name__}.log
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     try:
+
         user_id = update.message.from_user.id
-        await insert_users_db(user_id=user_id, balance_hl=10, balance=5000)
-        await update.message.reply_text(
-            reply_to_message_id=update.message.message_id,
-            text='Привет, я бот для ссылок!',
-            reply_markup=start_keyboard
-        )
-        await set_checkout(update=update,context=context)
+        result = await select_users_db(user_id=user_id, column=-1)
+        if result:
+            await update.message.reply_text(
+                reply_to_message_id=update.message.message_id,
+                text='Привет, я бот для ссылок!',
+                reply_markup=start_keyboard
+            )
+            return states.START
+
+        with open(file='xuis/xui1.png', mode='rb') as picture:
+            await update.message.reply_photo(photo=picture, reply_markup=first_start_keyboard)
+        await set_checkout(update=update, context=context)
         logger.info(msg=f'Succeed to start')
 
         return states.START
     except Exception as e:
         logger.exception(msg=f'Failed to start: {e}')
+
+
+async def first_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """sosi xui"""
+    try:
+        user_id = update.message.from_user.id
+        result = await select_users_db(user_id=user_id, column=-1)
+        if result:
+            return states.START
+
+        with open(file='xuis/xui2.png', mode='rb') as picture:
+            await context.bot.send_photo(chat_id=user_id, photo=picture)
+        with open(file='xuis/xui3.png', mode='rb') as picture:
+            await context.bot.send_photo(chat_id=user_id, photo=picture)
+        with open(file='xuis/xui4.png', mode='rb') as picture:
+            await context.bot.send_photo(chat_id=user_id, photo=picture)
+        with open(file='xuis/xui5.png', mode='rb') as picture:
+            await context.bot.send_photo(chat_id=user_id, photo=picture)
+        with open(file='xuis/xui6.png', mode='rb') as picture:
+            await context.bot.send_photo(chat_id=user_id, photo=picture)
+        with open(file='xuis/xui7.png', mode='rb') as picture:
+            await context.bot.send_photo(chat_id=user_id, photo=picture)
+        with open(file='xuis/xui8.png', mode='rb') as picture:
+            await context.bot.send_photo(chat_id=user_id, photo=picture)
+
+        await insert_users_db(user_id=user_id, balance_hl=10, balance=5000)
+        await update.message.reply_text(
+            reply_to_message_id=update.message.message_id,
+            text='Поздравляю! На твой баланс начислено 50₽ и 10 ХЛБаллов. Самое время загрузить свою первую ссылку)',
+            reply_markup=start_keyboard
+        )
+        logger.info(msg=f'Succeed to first_start')
+        return states.START
+    except Exception as e:
+        logger.exception(msg=f'Failed to first_start: {e}')
 
 
 async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -78,6 +119,7 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 wb = openpyxl.load_workbook(f'excel/db.xlsx')
             except FileNotFoundError:
                 wb = openpyxl.Workbook()
+
             ws = wb.worksheets[0]
             index = ws.max_row + 1
             ws.cell(row=index, column=1, value=f'{user_id}')
@@ -92,7 +134,8 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=f'{update.message.from_user.username} получили 1 ХЛБалл! Ваш баланс: {balance_hl}',
                 reply_markup=back_keyboard
             )
-
+            with open(file='xuis/eball.png', mode='rb') as picture:
+                await update.message.reply_photo(photo=picture, reply_markup=start_keyboard, )
             logger.info(msg=f'Succeed to task complete 0')
             return states.GET_LINK
 
@@ -371,13 +414,12 @@ async def checkout(context: ContextTypes.DEFAULT_TYPE):
         await sleep(3)
 
 
-
 async def set_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Add a job to the queue."""
     try:
         user_id = update.message.from_user.id
         context.job_queue.run_once(callback=checkout,
-                                   when=60*60*24 + 5,
+                                   when=60 * 60 * 24 + 5,
                                    chat_id=user_id,
                                    name=str(user_id),
                                    )
@@ -466,8 +508,8 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
         offerId = specs.payment_payload.get(user_id)
         async with ClientSession() as session:
             async with session.get(url=f'https://gate.lava.top/api/v1/invoices/{offerId}',
-                                    headers=headers
-                                    ) as response:
+                                   headers=headers
+                                   ) as response:
                 if response.status == 200:
                     data = await response.json()
                     if data['status'] == "COMPLETED":

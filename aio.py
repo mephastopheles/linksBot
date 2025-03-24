@@ -19,7 +19,8 @@ from specs import specs
 from specs import states
 
 from database import create_db, create_triggers_db
-from handlers import (start, task_complete,
+from handlers import (start, first_start,
+                      task_complete,
                       personal_account,back,
                       account_payment, account_send_invoice, account_invoice_confirm,
 
@@ -67,6 +68,7 @@ def main() -> None:
         states={
             states.START: [
                 CommandHandler('start', start),
+                MessageHandler(filters.Text(['Дальше']), first_start),
                 MessageHandler(filters.Text(['Получить ссылку']), get_link),
                 MessageHandler(filters.Text(['Отправить ссылку']), send_link),
                 MessageHandler(filters.Text(['Личный кабинет']), personal_account),
