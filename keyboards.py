@@ -8,11 +8,10 @@ start_keyboard = ReplyKeyboardMarkup(
     one_time_keyboard=True,
     is_persistent=False)
 
-first_start_keyboard = ReplyKeyboardMarkup(
-    keyboard=[["Дальше"]],
-    one_time_keyboard=True,
-    is_persistent=False
-)
+
+def first_start_keyboard(step: int = 1):
+
+    return ReplyKeyboardMarkup(keyboard=[[f"Шаг {step}"]], one_time_keyboard=True, is_persistent=False)
 
 
 # keyboard in account

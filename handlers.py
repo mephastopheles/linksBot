@@ -48,7 +48,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return states.START
 
         with open(file='xuis/xui1.png', mode='rb') as picture:
-            await update.message.reply_photo(photo=picture, reply_markup=first_start_keyboard)
+            await update.message.reply_photo(photo=picture, reply_markup=first_start_keyboard(step=1))
         await set_checkout(update=update, context=context)
         logger.info(msg=f'Succeed to start')
 
@@ -64,28 +64,24 @@ async def first_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         result = await select_users_db(user_id=user_id, column=-1)
         if result:
             return states.START
+        number = update.message.text[-1]
+        with open(file=f'xuis/xui{int(number)+1}.png', mode='rb') as picture:
+            if int(number) < 7:
 
-        with open(file='xuis/xui2.png', mode='rb') as picture:
-            await context.bot.send_photo(chat_id=user_id, photo=picture)
-        with open(file='xuis/xui3.png', mode='rb') as picture:
-            await context.bot.send_photo(chat_id=user_id, photo=picture)
-        with open(file='xuis/xui4.png', mode='rb') as picture:
-            await context.bot.send_photo(chat_id=user_id, photo=picture)
-        with open(file='xuis/xui5.png', mode='rb') as picture:
-            await context.bot.send_photo(chat_id=user_id, photo=picture)
-        with open(file='xuis/xui6.png', mode='rb') as picture:
-            await context.bot.send_photo(chat_id=user_id, photo=picture)
-        with open(file='xuis/xui7.png', mode='rb') as picture:
-            await context.bot.send_photo(chat_id=user_id, photo=picture)
-        with open(file='xuis/xui8.png', mode='rb') as picture:
-            await context.bot.send_photo(chat_id=user_id, photo=picture)
+                await update.message.reply_photo(reply_to_message_id=update.message.message_id,
+                                                photo=picture,
+                                                 reply_markup=first_start_keyboard(step=int(number)+1))
+            else:
+                await update.message.reply_photo(reply_to_message_id=update.message.message_id,
+                                                 photo=picture)
 
-        await insert_users_db(user_id=user_id, balance_hl=10, balance=5000)
-        await update.message.reply_text(
-            reply_to_message_id=update.message.message_id,
-            text='Поздравляю! На твой баланс начислено 50₽ и 10 ХЛБаллов. Самое время загрузить свою первую ссылку)',
-            reply_markup=start_keyboard
-        )
+        if int(number) == 7:
+            await insert_users_db(user_id=user_id, balance_hl=10, balance=5000)
+            await update.message.reply_text(
+                reply_to_message_id=update.message.message_id,
+                text='Поздравляю! На твой баланс начислено 50₽ и 10 ХЛБаллов. Самое время загрузить свою первую ссылку)',
+                reply_markup=start_keyboard
+            )
         logger.info(msg=f'Succeed to first_start')
         return states.START
     except Exception as e:
@@ -129,13 +125,15 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ws.cell(row=index, column=4, value=f'{count_pays[0]}')
             ws.cell(row=index, column=5, value=f'{sum_pays[0] * 0.01}')
             wb.save('excel/db.xlsx')
-            await update.message.reply_text(
-                reply_to_message_id=update.message.message_id,
-                text=f'{update.message.from_user.username} получили 1 ХЛБалл! Ваш баланс: {balance_hl}',
-                reply_markup=back_keyboard
-            )
             with open(file='xuis/eball.png', mode='rb') as picture:
-                await update.message.reply_photo(photo=picture, reply_markup=back_keyboard, )
+                await update.message.reply_photo(
+                    reply_to_message_id=update.message.message_id,
+                    photo=picture,
+                    caption=f'{update.message.from_user.username} получили 1 ХЛБалл! Ваш баланс: {balance_hl}',
+                    reply_markup=back_keyboard
+                )
+            # with open(file='xuis/eball.png', mode='rb') as picture:
+            #     await update.message.reply_photo(photo=picture, reply_markup=back_keyboard, )
             logger.info(msg=f'Succeed to task complete 0')
             return states.GET_LINK
 

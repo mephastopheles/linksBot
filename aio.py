@@ -68,7 +68,7 @@ def main() -> None:
         states={
             states.START: [
                 CommandHandler('start', start),
-                MessageHandler(filters.Text(['Дальше']), first_start),
+                MessageHandler(filters.Text(['Шаг 1','Шаг 2','Шаг 3','Шаг 4','Шаг 5','Шаг 6','Шаг 7']), first_start),
                 MessageHandler(filters.Text(['Получить ссылку']), get_link),
                 MessageHandler(filters.Text(['Отправить ссылку']), send_link),
                 MessageHandler(filters.Text(['Личный кабинет']), personal_account),
