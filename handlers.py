@@ -108,9 +108,10 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
             balance_hl = await select_users_db(user_id=user_id, column=1)
             await insert_tasks_db(user_id=user_id, task=task, photo_id=photo_id, task_id=task_id)
             count_pays, sum_pays = await select_pays(user_id=user_id)
+            # print(count_pays, sum_pays)
             if not count_pays:
-                count_pays = [0]
-                sum_pays = [0]
+                count_pays = 0
+                sum_pays = 0
             try:
                 wb = openpyxl.load_workbook(f'excel/db.xlsx')
             except FileNotFoundError:
@@ -122,8 +123,8 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ws.cell(row=index, column=2, value=f'{task}')
             ws.cell(row=index, column=3, value=f'{photo_id}')
 
-            ws.cell(row=index, column=4, value=f'{count_pays[0]}')
-            ws.cell(row=index, column=5, value=f'{sum_pays[0] * 0.01}')
+            ws.cell(row=index, column=4, value=f'{count_pays}')
+            ws.cell(row=index, column=5, value=f'{sum_pays * 0.01}')
             wb.save('excel/db.xlsx')
             with open(file='xuis/eball.png', mode='rb') as picture:
                 await update.message.reply_photo(
@@ -397,6 +398,7 @@ async def checkout(context: ContextTypes.DEFAULT_TYPE):
 
                     else:
                         await context.bot.send_message(
+                            chat_id=user_id,
                             text='Что-то пошло не так',
                             reply_markup=start_keyboard
                         )

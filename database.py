@@ -158,7 +158,7 @@ async def insert_pays(user_id: int, pays_sum: int, db_file: str = f'{specs.db_pa
                       INSERT INTO pays (user_id, pays_sum) VALUES (?, ?);
                        ''', (user_id, pays_sum))
             await db.commit()
-        logger.exception(msg=f'Succeed to insert_pays db')
+        logger.info(msg=f'Succeed to insert_pays db')
     except Exception as e:
         logger.exception(msg=f'Failed to insert_pays db: {e}')
 
