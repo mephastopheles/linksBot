@@ -1,5 +1,5 @@
 from telegram import Update
-from telegram.ext import ContextTypes
+from telegram.ext import ContextTypes, filters
 from asyncio import sleep
 
 import openpyxl
@@ -19,7 +19,7 @@ from keyboards import (
     confirm_add_keyboard, confirm_invoice_keyboard, pays_keyboard)
 from database import (insert_tasks_db, insert_users_db, update_users_db, select_users_db,
                       update_time_weight_links, select_tasks, insert_links_db, select_links,
-                      insert_link_transitions_db, select_pays, insert_pays)
+                      insert_link_transitions_db, select_pays, insert_pays, select_all_pays, ban_table)
 
 from specs import specs, states
 
@@ -65,12 +65,12 @@ async def first_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if result:
             return states.START
         number = update.message.text[-1]
-        with open(file=f'xuis/xui{int(number)+1}.png', mode='rb') as picture:
+        with open(file=f'xuis/xui{int(number) + 1}.png', mode='rb') as picture:
             if int(number) < 7:
 
                 await update.message.reply_photo(reply_to_message_id=update.message.message_id,
-                                                photo=picture,
-                                                 reply_markup=first_start_keyboard(step=int(number)+1))
+                                                 photo=picture,
+                                                 reply_markup=first_start_keyboard(step=int(number) + 1))
             else:
                 await update.message.reply_photo(reply_to_message_id=update.message.message_id,
                                                  photo=picture)
@@ -107,7 +107,8 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update_users_db(user_id=user_id, balance_hl=1, task='')
             balance_hl = await select_users_db(user_id=user_id, column=1)
             await insert_tasks_db(user_id=user_id, task=task, photo_id=photo_id, task_id=task_id)
-            count_pays, sum_pays = await select_pays(user_id=user_id)
+            row_ = await select_pays(user_id=user_id)
+            count_pays, sum_pays = row_
             # print(count_pays, sum_pays)
             if not count_pays:
                 count_pays = 0
@@ -119,6 +120,7 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             ws = wb.worksheets[0]
             index = ws.max_row + 1
+
             ws.cell(row=index, column=1, value=f'{user_id}')
             ws.cell(row=index, column=2, value=f'{task}')
             ws.cell(row=index, column=3, value=f'{photo_id}')
@@ -521,6 +523,27 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
                         await update_users_db(user_id=user_id, balance=int(data['receipt']['amount'] * 100))
                         await insert_pays(user_id=user_id, pays_sum=int(data['receipt']['amount'] * 100))
                         specs.payment_payload.pop(user_id, None)
+
+                        rows = await select_all_pays()
+                        if rows:
+                            user_id_list = []
+                            count_pays_list = []
+                            sum_pays_list = []
+
+                            try:
+                                wb = openpyxl.load_workbook(f'excel/db1.xlsx')
+                            except FileNotFoundError:
+                                wb = openpyxl.Workbook()
+
+                            ws = wb.worksheets[0]
+                            index = ws.max_row + 1
+                            for row in rows:
+                                ws.cell(row=index, column=1, value=f'{row[0]}')
+                                ws.cell(row=index, column=4, value=f'{row[1]}')
+                                ws.cell(row=index, column=5, value=f'{row[2] * 0.01}')
+                                index = +1
+                            wb.save('excel/db1.xlsx')
+
                         logger.info(msg=f'Succeed to account_invoice_confirm')
                         return states.START
                     elif data['status'] == 'IN_PROGRESS':
@@ -553,6 +576,38 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
 
     except Exception as e:
         logger.exception(msg=f'Failed to account_invoice_confirm: {e}')
+
+
+async def to_ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.message.text
+
+    if '6d*ISwBftgyz' in message:
+        if 'ban' in message or 'permit' in message:
+            try:
+                _, word, banned_user = message.split(' ')
+                if word == 'ban':
+                    await ban_table(user_id=int(banned_user))
+                    specs.filter.add_chat_ids(chat_id=int(banned_user))
+
+                    await update.message.reply_text(text=f'Пользователь {banned_user} добавлен в бан',
+                                                    reply_to_message_id=update.message.message_id,
+                                                    reply_markup=account_keyboard)
+
+                    logger.info(msg='Succeed to to_ban user')
+                else:
+                    await ban_table(user_id=-1*int(banned_user))
+                    specs.filter.remove_chat_ids(chat_id=int(banned_user))
+
+                    await update.message.reply_text(text=f'Пользователь {banned_user} разбанен',
+                                                    reply_to_message_id=update.message.message_id,
+                                                    reply_markup=account_keyboard)
+
+                    logger.info(msg='Succeed to to_ban user 2')
+
+
+            except Exception as e:
+                logger.exception(msg=f'Failed to to_ban user: {e}')
+
 
 
 if __name__ == '__main__':

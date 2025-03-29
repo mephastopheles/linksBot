@@ -1,9 +1,7 @@
 from os import getenv as os_getenv
 from os import makedirs as os_makedirs
 from os import path as os_path
-
-from aiohttp import ClientSession
-from json import dumps as json_dumps
+from telegram.ext import filters
 
 
 class Specs:
@@ -14,6 +12,7 @@ class Specs:
                  currency: str = 'RUB',
                  price=None,
                  price_hl=None,
+                 filter=None
                  ):
         if price_hl is None:
             price_hl = [10, 100]
@@ -34,6 +33,8 @@ class Specs:
         self.price_hl = price_hl
         self.choose_cost = {}
         self.payment_payload = {}
+
+        self.filter = filter
 
     @property
     def db_path(self):
@@ -82,7 +83,8 @@ if PAYMENT_PROVIDER_TOKEN is None:
 
 WALLET = ''
 
-specs = Specs(token=TOKEN, payment_token=PAYMENT_PROVIDER_TOKEN, wallet=WALLET)
+specs = Specs(token=TOKEN, payment_token=PAYMENT_PROVIDER_TOKEN, wallet=WALLET,
+              filter=filters.Chat({-228}))
 
 
 class States:
@@ -97,35 +99,6 @@ class States:
 
 
 states = States()
-
-
-# async def checkout():
-#     headers = {'Authorization': specs.payment_token}
-#
-#     for user_id, transaction_id in specs.payment_payload.values():
-#         data = {'id': specs.payment_payload.get(user_id)}
-#         async with ClientSession() as session:
-#             async with session.post(url='https://api.lava.ru/invoice/info',
-#                                     headers=headers,
-#                                     data=json_dumps(data),
-#                                     ) as response:
-#                 if response.status == 200:
-#                     data = await response.json()
-#                     if data['status'] == 'success':
-#                         await update.message.reply_text(
-#                             text='Баланс успешно пополнен',
-#                             reply_to_message_id=update.message.message_id,
-#                             reply_markup=start_keyboard
-#                         )
-
-
-
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.jobstores.memory import MemoryJobStore
-from apscheduler.executors.pool import ThreadPoolExecutor
-
-scheduler = AsyncIOScheduler()
-# scheduler.add_job()
 
 if __name__ == '__main__':
     pass

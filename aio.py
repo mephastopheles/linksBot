@@ -18,15 +18,14 @@ from specs import specs
 # states
 from specs import states
 
-from database import create_db, create_triggers_db
+from database import create_db, create_triggers_db, ban_table
 from handlers import (start, first_start,
                       task_complete,
-                      personal_account,back,
+                      personal_account, back,
                       account_payment, account_send_invoice, account_invoice_confirm,
-
+                      to_ban,
                       get_link, add_link, send_link, confirm_add)
 from keyboards import account_add_balance
-
 
 # Enable logging
 logging.basicConfig(
@@ -44,13 +43,17 @@ logger.addHandler(RotatingFileHandler(filename=f"{specs.logs_path}{__name__}.log
                                       maxBytes=1024 * 1024))
 
 
-
-
 async def db_init(application: Application):
     """Create db"""
 
     await create_db(users=True, tasks=True, links=True)
     await create_triggers_db()
+    await ban_table(user_id=None)
+
+    rows = await ban_table(user_id=0)
+    if rows:
+        specs.filter.chat_ids = set([i[0] for i in rows])
+
 
 
 def main() -> None:
@@ -64,61 +67,68 @@ def main() -> None:
     application = application.build()
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
+        entry_points=[CommandHandler(command='start', callback=start, filters=~specs.filter)],
         states={
             states.START: [
-                CommandHandler('start', start),
-                MessageHandler(filters.Text(['Шаг 1','Шаг 2','Шаг 3','Шаг 4','Шаг 5','Шаг 6','Шаг 7']), first_start),
-                MessageHandler(filters.Text(['Получить ссылку']), get_link),
-                MessageHandler(filters.Text(['Отправить ссылку']), send_link),
-                MessageHandler(filters.Text(['Личный кабинет']), personal_account),
+                CommandHandler(command='start', callback=start, filters=~specs.filter),
+                MessageHandler(filters=filters.Text(
+                    ['Шаг 1', 'Шаг 2', 'Шаг 3', 'Шаг 4', 'Шаг 5', 'Шаг 6', 'Шаг 7']) & ~specs.filter,
+                               callback=first_start),
+                MessageHandler(filters=filters.Text(['Получить ссылку']) & ~specs.filter,
+                               callback=get_link),
+                MessageHandler(filters=filters.Text(['Отправить ссылку']) & ~specs.filter,
+                               callback=send_link),
+                MessageHandler(filters=filters.Text(['Личный кабинет']) & ~specs.filter,
+                               callback=personal_account),
 
             ],
             states.ACCOUNT: [
-                CommandHandler('start', start),
-                MessageHandler(filters.Text(['Назад']), back),
-                MessageHandler(filters.Text(['Пополнить баланс']), account_payment),
-
-                #
-                # PreCheckoutQueryHandler(precheckout_callback),
-                # MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback),
+                CommandHandler(command='start', callback=start,
+                               filters=~specs.filter),
+                MessageHandler(filters=filters.Text(['Назад']) & ~specs.filter,
+                               callback=back),
+                MessageHandler(filters=filters.Text(['Пополнить баланс']) & ~specs.filter,
+                               callback=account_payment),
+                MessageHandler(filters=~specs.filter, callback=to_ban)
 
             ],
             states.ACCOUNT_ADD_BALANCE: [
-                MessageHandler(filters.Text(['Назад']), back),
-                MessageHandler(filters.Text([account_add_balance.keyboard[0][0].text,
-                                             account_add_balance.keyboard[1][0].text,
-                                             account_add_balance.keyboard[2][0].text,
-                                             account_add_balance.keyboard[3][0].text,
-                                             ]), account_send_invoice),
-
+                MessageHandler(filters=filters.Text(['Назад']) & ~specs.filter, callback=back),
+                MessageHandler(filters=filters.Text([account_add_balance.keyboard[0][0].text,
+                                                     account_add_balance.keyboard[1][0].text,
+                                                     account_add_balance.keyboard[2][0].text,
+                                                     account_add_balance.keyboard[3][0].text,
+                                                     ]) & ~specs.filter,
+                               callback=account_send_invoice),
 
             ],
 
             states.ACCOUNT_CONFIRM_ADD: [
-                MessageHandler(filters.Text(['Назад']), back),
-                MessageHandler(filters.Text(['Оплачено']), account_invoice_confirm)
-
+                MessageHandler(filters=filters.Text(['Назад']) & ~specs.filter,
+                               callback=back),
+                MessageHandler(filters=filters.Text(['Оплачено']) & ~specs.filter,
+                               callback=account_invoice_confirm)
 
             ],
 
             states.SEND_LINK: [
-                CommandHandler('start', start),
-                MessageHandler(filters.Text(['Назад']), back),
-                MessageHandler(filters.Text(['Добавить за 50 рублей и 10 ХЛБаллов',
-                                             'Добавить за 10 рублей и 100 ХЛБаллов']), confirm_add),
+                CommandHandler(command='start', callback=start, filters=~specs.filter),
+                MessageHandler(filters=filters.Text(['Назад']) & ~specs.filter, callback=back),
+                MessageHandler(filters=filters.Text(['Добавить за 50 рублей и 10 ХЛБаллов',
+                                                     'Добавить за 10 рублей и 100 ХЛБаллов']) & ~filters.Chat(
+                    specs.block_users), callback=confirm_add),
 
             ],
             states.ACCEPT_LINK: [
-                MessageHandler(filters.Text(['Назад']), back),
-                MessageHandler(filters.TEXT, add_link),
+                MessageHandler(filters=filters.Text(['Назад']), callback=back),
+                MessageHandler(filters=filters.TEXT, callback=add_link),
 
             ],
 
             states.GET_LINK: [
-                CommandHandler('start', start),
-                MessageHandler(filters.Text(['Назад']), back),
-                MessageHandler(filters.PHOTO, task_complete)
+                CommandHandler(command='start', callback=start, filters=~specs.filter),
+                MessageHandler(filters=filters.Text(['Назад']) & ~specs.filter, callback=back),
+                MessageHandler(filters=filters.PHOTO & ~specs.filter, callback=task_complete)
 
             ]
 
