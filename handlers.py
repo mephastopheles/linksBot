@@ -119,8 +119,15 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 wb = openpyxl.Workbook()
 
             ws = wb.worksheets[0]
-            index = ws.max_row + 1
+            index = ws.max_row
+            if index == 1:
+                ws.cell(row=index, column=1, value='user_id')
+                ws.cell(row=index, column=2, value=f'ссылка')
+                ws.cell(row=index, column=3, value=f'название скрина')
+                ws.cell(row=index, column=4, value=f'кол-во пополнений')
+                ws.cell(row=index, column=5, value=f'сумма пополнений')
 
+            index+=1
             ws.cell(row=index, column=1, value=f'{user_id}')
             ws.cell(row=index, column=2, value=f'{task}')
             ws.cell(row=index, column=3, value=f'{photo_id}')
@@ -128,6 +135,7 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ws.cell(row=index, column=4, value=f'{count_pays}')
             ws.cell(row=index, column=5, value=f'{sum_pays * 0.01}')
             wb.save('excel/db.xlsx')
+
             with open(file='xuis/eball.png', mode='rb') as picture:
                 await update.message.reply_photo(
                     reply_to_message_id=update.message.message_id,
@@ -526,9 +534,7 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
 
                         rows = await select_all_pays()
                         if rows:
-                            user_id_list = []
-                            count_pays_list = []
-                            sum_pays_list = []
+
 
                             try:
                                 wb = openpyxl.load_workbook(f'excel/db1.xlsx')
@@ -536,12 +542,18 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
                                 wb = openpyxl.Workbook()
 
                             ws = wb.worksheets[0]
-                            index = ws.max_row + 1
+                            index = ws.max_row
+                            if index == 1:
+                                ws.cell(row=index, column=1, value='user_id')
+                                ws.cell(row=index, column=2, value=f'кол-во пополнений')
+                                ws.cell(row=index, column=3, value=f'сумма пополнений')
+                            index += 1
+
                             for row in rows:
                                 ws.cell(row=index, column=1, value=f'{row[0]}')
-                                ws.cell(row=index, column=4, value=f'{row[1]}')
-                                ws.cell(row=index, column=5, value=f'{row[2] * 0.01}')
-                                index = +1
+                                ws.cell(row=index, column=2, value=f'{row[1]}')
+                                ws.cell(row=index, column=3, value=f'{row[2] * 0.01}')
+                                index += 1
                             wb.save('excel/db1.xlsx')
 
                         logger.info(msg=f'Succeed to account_invoice_confirm')
