@@ -115,8 +115,8 @@ def main() -> None:
                 CommandHandler(command='start', callback=start, filters=~specs.filter),
                 MessageHandler(filters=filters.Text(['Назад']) & ~specs.filter, callback=back),
                 MessageHandler(filters=filters.Text(['Добавить за 50 рублей и 10 ХЛБаллов',
-                                                     'Добавить за 10 рублей и 100 ХЛБаллов']) & ~filters.Chat(
-                    specs.block_users), callback=confirm_add),
+                                                     'Добавить за 10 рублей и 100 ХЛБаллов']) & ~specs.filter,
+                callback=confirm_add),
 
             ],
             states.ACCEPT_LINK: [
