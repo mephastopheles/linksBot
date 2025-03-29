@@ -107,8 +107,7 @@ async def task_complete(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update_users_db(user_id=user_id, balance_hl=1, task='')
             balance_hl = await select_users_db(user_id=user_id, column=1)
             await insert_tasks_db(user_id=user_id, task=task, photo_id=photo_id, task_id=task_id)
-            row_ = await select_pays(user_id=user_id)
-            count_pays, sum_pays = row_
+            count_pays, sum_pays = await select_pays(user_id=user_id)
             # print(count_pays, sum_pays)
             if not count_pays:
                 count_pays = 0

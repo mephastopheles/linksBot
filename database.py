@@ -168,7 +168,7 @@ async def select_pays(user_id=int, db_file: str = f'{specs.db_path}bot_database.
             async with db.execute('''
             SELECT COUNT(*), SUM(pays_sum) FROM pays WHERE user_id = ?;
             ''', (user_id,)) as cursor:
-                row = await cursor.fetchall()
+                row = await cursor.fetchone()
                 logger.info(msg=f'Succeed to select_pays db')
                 return row
 
