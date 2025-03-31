@@ -49,7 +49,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         with open(file='xuis/xui1.png', mode='rb') as picture:
             await update.message.reply_photo(photo=picture, reply_markup=first_start_keyboard(step=1))
-        await set_checkout(update=update, context=context)
+
         logger.info(msg=f'Succeed to start')
 
         return states.START
@@ -406,11 +406,12 @@ async def checkout(context: ContextTypes.DEFAULT_TYPE):
                             return states.START
 
                     else:
-                        await context.bot.send_message(
-                            chat_id=user_id,
-                            text='Что-то пошло не так',
-                            reply_markup=start_keyboard
-                        )
+
+                        # await context.bot.send_message(
+                        #     chat_id=user_id,
+                        #     text='Что-то пошло не так',
+                        #     reply_markup=start_keyboard
+                        # )
                         continue_check = True
                         return states.START
 
@@ -563,6 +564,7 @@ async def account_invoice_confirm(update: Update, context: ContextTypes.DEFAULT_
                             reply_to_message_id=update.message.message_id,
                             reply_markup=confirm_invoice_keyboard
                         )
+                        await set_checkout(update=update, context=context)
                         logger.info(msg='Waited to account_invoice_confirm: IN_PROGRESS')
                         return states.ACCOUNT_CONFIRM_ADD
                     else:
@@ -596,6 +598,7 @@ async def to_ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if 'ban' in message or 'permit' in message:
             try:
                 _, word, banned_user = message.split(' ')
+
                 if word == 'ban':
                     await ban_table(user_id=int(banned_user))
                     specs.filter.add_chat_ids(chat_id=int(banned_user))
