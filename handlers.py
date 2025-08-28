@@ -35,6 +35,7 @@ logger.addHandler(RotatingFileHandler(filename=f"{specs.logs_path}{__name__}.log
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
+
     try:
 
         user_id = update.message.from_user.id
